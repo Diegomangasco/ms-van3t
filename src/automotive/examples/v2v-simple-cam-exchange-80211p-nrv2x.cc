@@ -245,8 +245,8 @@ int main (int argc, char *argv[])
   uint64_t numberOfNodes_nr = numberOfNodes / 2;
 
   // Create numberOfNodes nodes
-  NodeContainer c;
-  c.Create (numberOfNodes_11p);
+  NodeContainer wifiNodes;
+  wifiNodes.Create (numberOfNodes_11p);
 
   YansWifiPhyHelper wifiPhy;
   wifiPhy.Set ("TxPowerStart", DoubleValue (txPower));
@@ -271,7 +271,7 @@ int main (int argc, char *argv[])
                                       "DataMode",StringValue (phyMode),
                                       "ControlMode",StringValue (phyMode),
                                       "NonUnicastMode",StringValue (phyMode));
-  NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, c);
+  NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, wifiNodes);
 
   // Enable saving to Wireshark PCAP traces
   wifiPhy.EnablePcap ("v2v-80211p-student-application", devices);
@@ -279,7 +279,7 @@ int main (int argc, char *argv[])
   // Set up the link between SUMO and ns-3, to make each node "mobile" (i.e., linking each ns-3 node to each moving vehicle in ns-3,
   // which corresponds to installing the network stack to each SUMO vehicle)
   MobilityHelper mobility;
-  mobility.Install (c);
+  mobility.Install (wifiNodes);
 
   Ptr<MetricSupervisor> metSup = NULL;
   // Set a baseline for the PRR computation when creating a new Metricsupervisor object
@@ -292,17 +292,8 @@ int main (int argc, char *argv[])
   // metSup->enablePRRVerboseOnStdout ();
 
   PacketSocketHelper packetSocket;
-  packetSocket.Install(c);
+  packetSocket.Install(wifiNodes);
   TypeId tid = TypeId::LookupByName ("ns3::PacketSocketFactory");
-  Ptr<Socket> source_interfering = Socket::CreateSocket (c.Get (2), tid);
-  PacketSocketAddress local_source_interfering;
-  local_source_interfering.SetSingleDevice (c.Get(2)->GetDevice(0)->GetIfIndex ());
-  local_source_interfering.SetPhysicalAddress (c.Get(2)->GetDevice(0)->GetAddress());
-  local_source_interfering.SetProtocol (0x88B5); // Setting the "Local Experimental Ethertype 1" to send interfering traffic
-  if (source_interfering->Bind (local_source_interfering) == -1)
-    {
-      NS_FATAL_ERROR ("Failed to bind client socket for BTP + GeoNetworking (802.11p)");
-    }
 
 
   Time slBearersActivationTime = Seconds (2.0);
@@ -322,10 +313,10 @@ int main (int argc, char *argv[])
   Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper> ();
   Ptr<NrHelper> nrHelper = CreateObject<NrHelper> ();
 
-  NodeContainer allSlUesContainer;
-  allSlUesContainer.Create(numberOfNodes_nr);
+  NodeContainer nrNodes;
+  nrNodes.Create(numberOfNodes_nr);
 
-  mobility.Install (allSlUesContainer);
+  mobility.Install (nrNodes);
 
   // Put the pointers inside nrHelper
   nrHelper->SetEpcHelper (epcHelper);
@@ -376,7 +367,7 @@ int main (int argc, char *argv[])
   std::set<uint8_t> bwpIdContainer;
   bwpIdContainer.insert (bwpIdForGbrMcptt);
 
-  NetDeviceContainer allSlUesNetDeviceContainer = nrHelper->InstallUeDevice (allSlUesContainer, allBwps);
+  NetDeviceContainer allSlUesNetDeviceContainer = nrHelper->InstallUeDevice (nrNodes, allBwps);
 
   // When all the configuration is done, explicitly call UpdateConfig ()
   for (auto it = allSlUesNetDeviceContainer.Begin (); it != allSlUesNetDeviceContainer.End (); ++it)
@@ -500,13 +491,13 @@ int main (int argc, char *argv[])
   NodeContainer rxSlUes;
   NetDeviceContainer txSlUesNetDevice;
   NetDeviceContainer rxSlUesNetDevice;
-  txSlUes.Add (allSlUesContainer);
-  rxSlUes.Add (allSlUesContainer);
+  txSlUes.Add (nrNodes);
+  rxSlUes.Add (nrNodes);
   txSlUesNetDevice.Add (allSlUesNetDeviceContainer);
   rxSlUesNetDevice.Add (allSlUesNetDeviceContainer);
 
   InternetStackHelper internet;
-  internet.Install (allSlUesContainer);
+  internet.Install (nrNodes);
   uint32_t dstL2Id = 255;
   Ipv4Address groupAddress4 ("225.0.0.0");     //use multicast address as destination
 
@@ -520,9 +511,9 @@ int main (int argc, char *argv[])
 
   // set the default gateway for the UE
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
-  for (uint32_t u = 0; u < allSlUesContainer.GetN (); ++u)
+  for (uint32_t u = 0; u < nrNodes.GetN (); ++u)
     {
-      Ptr<Node> ueNode = allSlUesContainer.Get (u);
+      Ptr<Node> ueNode = nrNodes.Get (u);
       // Set the default gateway for the UE
       Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting (ueNode->GetObject<Ipv4> ());
       ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
@@ -550,6 +541,7 @@ int main (int argc, char *argv[])
   sumoClient->SetAttribute ("SumoSeed", IntegerValue (10));
   sumoClient->SetAttribute ("SumoWaitForSocket", TimeValue (Seconds (1.0)));
 
+  uint8_t nodeCounter = 0;
 
   std::cout << "A transmission power of " << txPower << " dBm  will be used." << std::endl;
 
@@ -557,10 +549,23 @@ int main (int argc, char *argv[])
 
   STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID, TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
   {
-    unsigned long nodeID = std::stol(vehicleID.substr (3))-1;
+    bool wifi;
+    unsigned long nodeID;
+
+    if (nodeCounter < numberOfNodes_11p - 1)
+      {
+        wifi = true;
+        nodeID = std::stol(vehicleID.substr (3))-1;
+      }
+    else
+      {
+        wifi = false;
+        nodeID = std::stol(vehicleID.substr (3))-1;
+        nodeID -= numberOfNodes_11p;
+      }
 
     Ptr<Socket> sock;
-    sock=GeoNet::createGNPacketSocket(c.Get(nodeID));
+    sock = wifi ? GeoNet::createGNPacketSocket(wifiNodes.Get(nodeID)) : GeoNet::createGNPacketSocket(nrNodes.Get(nodeID));
     sock->SetPriority (up);
 
     Ptr<BSContainer> bs_container = CreateObject<BSContainer>(std::stol(vehicleID.substr(3)),StationType_passengerCar,sumoClient,false,sock);
@@ -573,7 +578,9 @@ int main (int argc, char *argv[])
     double desync = ((double)std::rand()/RAND_MAX);
     bs_container->getCABasicService ()->startCamDissemination (desync);
 
-    return c.Get(nodeID);
+    nodeCounter ++;
+
+    return wifi ? wifiNodes.Get(nodeID) : nrNodes.Get(nodeID);
   };
 
   // Important: what you write here is called every time a node exits the simulation in SUMO
