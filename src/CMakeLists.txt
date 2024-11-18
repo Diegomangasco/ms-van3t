@@ -79,6 +79,7 @@ if(${NS3_MONOLIB})
                               "${lib-ns3-static-objs}"
           automotive/model/DCC/DCC.h
           automotive/model/DCC/DCC.cc
+          automotive/examples/v2v-simple-cam-exchange-80211p-nrv2x.cc
   )
   set_target_properties(
     ${lib-ns3-monolib} PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE

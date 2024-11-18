@@ -33,6 +33,8 @@
 // INCLUDE NVIDIA SIONNA
 #include "ns3/sionna_handler.h"
 #include "ns3/sionna_linker.h"
+#include <fstream>
+#include <iostream>
 
 namespace ns3 {
 
@@ -53,8 +55,19 @@ PropagationLossModel::GetTypeId (void)
 }
 
 PropagationLossModel::PropagationLossModel ()
-  : m_next (0)
+    : m_next (0)
 {
+  std::ifstream inFile("src/sionna/setup.txt");
+  if (inFile.is_open())
+    {
+      std::string content;
+      std::getline(inFile, content);
+      inFile.close();
+      if (content == "1")
+        {
+          SetSionnaUp();
+        }
+    }
 }
 
 PropagationLossModel::~PropagationLossModel ()
@@ -83,23 +96,31 @@ PropagationLossModel::CalcRxPower (double txPowerDbm,
   Vector b_position = GetPositionFromMobilityModel(b);
 
   // 2 - send calc_request to NVIDIA Sionna
-  double myself = txPowerDbm - getRxPowerFromSionna(a_position, b_position);
-  // 2a - same calculation but with old ns3
-  double self = DoCalcRxPower (txPowerDbm, a, b);
-  
-  if (myself != 23 && myself != 0) {
-    std::string los = getLOSStatusFromSionna(a_position, b_position);
-    
-    std::cout << "ns3_pathloss: " << self << ", sionna_pathloss: "<< myself << ", LOS: " << los << std::endl;
+  double power_ns3;
+  double power_sionna;
+  if (m_sionna)
+    {
+      power_sionna = txPowerDbm - getRxPowerFromSionna(a_position, b_position);
+    }
 
-    // For csv logging
-    std::string log_pl = std::to_string(self) + "," + std::to_string(myself) + "," + los;
-    LogProgress(2, log_pl);
+  power_ns3 = DoCalcRxPower (txPowerDbm, a, b);
 
-  }
-  
+  if (m_sionna)
+    {
+      if (power_sionna != 23 && power_sionna != 0) {
+          std::string los = getLOSStatusFromSionna(a_position, b_position);
+
+          std::cout << "ns3_pathloss: " << power_ns3 << ", sionna_pathloss: "<< power_sionna << ", LOS: " << los << std::endl;
+
+          // For csv logging
+          std::string log_pl = std::to_string(power_ns3) + "," + std::to_string(power_sionna) + "," + los;
+          LogProgress(2, log_pl);
+
+        }
+    }
+
   // 3 - Return value from Sionna instead of ns3 models
-  self = myself;
+  double self = m_sionna ? power_sionna : power_ns3;
   
   if (m_next != 0)
     {

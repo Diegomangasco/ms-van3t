@@ -506,7 +506,7 @@ namespace ns3
                 // create new node by calling the include function
                 std::pair<StationType_t, Ptr<ns3::Node>> inNode;
                 inNode.first = StationType_passengerCar;
-                inNode.second = m_includeNode(veh,StationTypeTraci_vehicle);
+                inNode.second = m_includeNode(veh, StationTypeTraci_vehicle);
 
                 // register in the map (link vehicle to node!)
                 m_NodeMap.insert(std::pair<std::string, std::pair<StationType_t, Ptr<ns3::Node>>>(veh, inNode));
@@ -533,7 +533,7 @@ namespace ns3
                     // Create the new node by calling the include function
                     std::pair<StationType_t, Ptr<ns3::Node>> inNode_ped;
                     inNode_ped.first = StationType_pedestrian;
-                    inNode_ped.second = m_includeNode(ped,StationTypeTraci_pedestrian);
+                    inNode_ped.second = m_includeNode(ped, StationTypeTraci_pedestrian);
 
                     // Register the new node in the map
                     m_NodeMap.insert(std::pair<std::string, std::pair<StationType_t, Ptr<ns3::Node>>>(ped, inNode_ped));

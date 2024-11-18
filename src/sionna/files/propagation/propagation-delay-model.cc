@@ -26,6 +26,8 @@
 // INCLUDE NVIDIA SIONNA
 #include "ns3/sionna_linker.h"
 #include "ns3/sionna_handler.h"
+#include <fstream>
+#include <iostream>
 
 namespace ns3 {
 
@@ -109,7 +111,19 @@ ConstantSpeedPropagationDelayModel::GetTypeId (void)
 
 ConstantSpeedPropagationDelayModel::ConstantSpeedPropagationDelayModel ()
 {
+  std::ifstream inFile("src/sionna/setup.txt");
+  if (inFile.is_open())
+    {
+      std::string content;
+      std::getline(inFile, content);
+      inFile.close();
+      if (content == "1")
+        {
+          SetSionnaUp();
+        }
+    }
 }
+
 Time
 ConstantSpeedPropagationDelayModel::GetDelay (Ptr<MobilityModel> a, Ptr<MobilityModel> b) const
 {
@@ -120,19 +134,26 @@ ConstantSpeedPropagationDelayModel::GetDelay (Ptr<MobilityModel> a, Ptr<Mobility
 
   double seconds = distance / m_speed;
   double milliseconds = seconds * 1000;
- 
-  double sionna_delay = getPropagationDelayFromSionna(a_position, b_position);
-  double sionna_delay_ms = sionna_delay * 1000;
 
-  if (sionna_delay != 0) {
-    printf("ns3_ms: %f, sionna_ms: %f, ", milliseconds, sionna_delay_ms);
-    
-    std::string log_delays = std::to_string(milliseconds) + "," + std::to_string(sionna_delay_ms);
-    LogProgress(0, log_delays);
+  double ns3_delay = seconds;
+  double ns3_delay_milliseconds = milliseconds;
+  double sionna_delay, sionna_delay_ms;
 
-  }
-  // Use Sionna delay
-  seconds = sionna_delay;
+  if (m_sionna)
+    {
+      sionna_delay = getPropagationDelayFromSionna(a_position, b_position);
+      sionna_delay_ms = sionna_delay * 1000;
+
+      if (sionna_delay != 0) {
+          printf("ns3_ms: %f, sionna_ms: %f, ", ns3_delay_milliseconds, sionna_delay_ms);
+
+          std::string log_delays = std::to_string(ns3_delay_milliseconds) + "," + std::to_string(sionna_delay_ms);
+          LogProgress(0, log_delays);
+
+        }
+    }
+
+  seconds = m_sionna ? sionna_delay : ns3_delay;
 
   return Seconds (seconds);
 }

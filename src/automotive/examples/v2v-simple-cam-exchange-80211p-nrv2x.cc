@@ -1,0 +1,630 @@
+/* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2005,2006,2007 INRIA
+ * Copyright (c) 2013 Dalian University of Technology
+ * Copyright (c) 2022 Politecnico di Torino
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr> (initial IEEE 802.11p example)
+ * Author: Junling Bu <linlinjavaer@gmail.com> (initial IEEE 802.11p example)
+ * Author: Francesco Raviglione <francescorav.es483@gmail.com> (IEEE 802.11p simple CAM exchange application)
+ *
+ * This is a simple example of a ms-van3t V2V communication scenario configured with a single .cc file,
+ * where vehicles exchange Cooperative Awareness Messages (CAMs) using the IEEE 802.11p standard.
+ * The user can specify several parameters, including the priority (Access Category) for the transmission
+ * of CAMs. BSContainers are used to simplify the configuration of the ETSI C-ITS stack of each vehicle.
+ * In this scenario, all vehicles transmit CAMs according to the ETSI standards, and one vehicle (vehicle 3)
+ * sends a heavy interfering traffic, without useful informative content, to simulate a congested channel.
+ * Through the --interfering-userpriority option, the user can specify the Access Category (AC) for the
+ * interfering traffic, which is broadcasted by vehicle 3.
+ * When a new CAM is received by one of the vehicles, the callback "receiveCAM()" is called, and the stationID of
+ * the received is available in "my_stationID".
+ * Currently, the function just counts the total number of CAMs, but it can be customized to impement more complex
+ * approaches.
+ * As output, the simulation provides, thanks to the PRRSupervisor module, the average latency and PRR over the
+ * whole simulation, and the average one-way latency for each vehicle up to vehicle 4.
+ * The reported latency of vehicle 3 is expected to be 0 as it transmits interfering traffic (so, no ETSI-compliant
+ * message is transmitted), that is not considered by the PRRSupervisor.
+ */
+
+// TODO rename 11p container (now is "c"), manage the STARTUP_FCN with two device containers
+
+// 802.11p
+#include "ns3/vector.h"
+#include "ns3/string.h"
+#include "ns3/socket.h"
+#include "ns3/double.h"
+#include "ns3/config.h"
+#include "ns3/log.h"
+#include "ns3/command-line.h"
+#include "ns3/yans-wifi-helper.h"
+#include "ns3/position-allocator.h"
+#include "ns3/mobility-helper.h"
+#include <iostream>
+#include "ns3/MetricSupervisor.h"
+#include "ns3/sumo_xml_parser.h"
+#include "ns3/BSMap.h"
+#include "ns3/caBasicService.h"
+#include "ns3/btp.h"
+#include "ns3/ocb-wifi-mac.h"
+#include "ns3/wifi-80211p-helper.h"
+#include "ns3/wave-mac-helper.h"
+#include "ns3/packet-socket-helper.h"
+#include "ns3/gn-utils.h"
+#include <fstream>
+
+// NR-V2X
+#include "ns3/traci-module.h"
+#include "ns3/config-store.h"
+#include "ns3/internet-module.h"
+#include "ns3/mobility-module.h"
+#include "ns3/point-to-point-module.h"
+#include "ns3/nr-module.h"
+#include "ns3/lte-module.h"
+#include "ns3/stats-module.h"
+#include "ns3/config-store-module.h"
+#include "ns3/antenna-module.h"
+#include <iomanip>
+#include "ns3/vehicle-visualizer-module.h"
+#include <unistd.h>
+#include "ns3/core-module.h"
+
+using namespace ns3;
+
+NS_LOG_COMPONENT_DEFINE ("V2VSimpleCAMExchange80211pNrv2x");
+
+void
+GetSlBitmapFromString (std::string slBitMapString, std::vector <std::bitset<1> > &slBitMapVector)
+{
+  static std::unordered_map<std::string, uint8_t> lookupTable =
+      {
+          { "0", 0 },
+          { "1", 1 },
+      };
+
+  std::stringstream ss (slBitMapString);
+  std::string token;
+  std::vector<std::string> extracted;
+
+  while (std::getline (ss, token, '|'))
+    {
+      extracted.push_back (token);
+    }
+
+  for (const auto & v : extracted)
+    {
+      if (lookupTable.find (v) == lookupTable.end ())
+        {
+          NS_FATAL_ERROR ("Bit type " << v << " not valid. Valid values are: 0 and 1");
+        }
+      slBitMapVector.push_back (lookupTable[v] & 0x01);
+    }
+}
+
+static int packet_count=0;
+BSMap basicServices; // Container for all ETSI Basic Services, installed on all vehicles
+void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, StationType_t my_StationType, SignalInfo phy_info)
+{
+  // std::cout << "Received CAM from station " << my_stationID << std::endl;
+  packet_count++;
+}
+
+static void GenerateTraffic_interfering (Ptr<Socket> socket, uint32_t pktSize,
+                             uint32_t pktCount, Time pktInterval )
+{
+  // Generate interfering traffic by sending pktCount packets (filled in with zeros), every pktInterval
+  if (pktCount > 0)
+    {
+      // "Create<Packet> (pktSize)" creates a new packet of size pktSize bytes, composed by default by all zeros
+      socket->Send (Create<Packet> (pktSize));
+      // Schedule again the same function (to send the next packet), and decrease by one the packet count
+      Simulator::Schedule (pktInterval, &GenerateTraffic_interfering,
+                           socket, pktSize,pktCount - 1, pktInterval);
+    }
+  else
+    {
+      socket->Close ();
+    }
+}
+
+int main (int argc, char *argv[])
+{
+  std::string phyMode ("OfdmRate6MbpsBW10MHz");
+  int up = 0;
+  int interfering_up = 0;
+  bool realtime = false;
+  bool verbose = false; // Set to true to get a lot of verbose output from the IEEE 802.11p PHY model (leave this to false)
+  int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
+  double m_baseline_prr = 150.0; // PRR baseline value (default: 150 m)
+  int txPower = 23.0; // IEEE 802.11p transmission power in dBm (default: 23 dBm)
+  xmlDocPtr rou_xml_file;
+  double simTime = 100.0; // Total simulation time (default: 100 seconds)
+
+  // NR parameters. We will take the input from the command line, and then we
+  // will pass them inside the NR module.
+  double centralFrequencyBandSl = 5.89e9; // band n47  TDD //Here band is analogous to channel
+  uint16_t bandwidthBandSl = 400;
+  std::string tddPattern = "UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|";
+  std::string slBitMap = "1|1|1|1|1|1|1|1|1|1";
+  uint16_t numerologyBwpSl = 2;
+  uint16_t slSensingWindow = 100; // T0 in ms
+  uint16_t slSelectionWindow = 5; // T2min
+  uint16_t slSubchannelSize = 10;
+  uint16_t slMaxNumPerReserve = 3;
+  double slProbResourceKeep = 0.0;
+  uint16_t slMaxTxTransNumPssch = 5;
+  uint16_t reservationPeriod = 20; // in ms
+  bool enableSensing = false;
+  uint16_t t1 = 2;
+  uint16_t t2 = 81;
+  int slThresPsschRsrp = -128;
+  bool enableChannelRandomness = false;
+  uint16_t channelUpdatePeriod = 500; //ms
+  uint8_t mcs = 14;
+
+  bool sionna = false;
+
+  // Set here the path to the SUMO XML files
+  std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
+  std::string mob_trace = "cars.rou.xml";
+  std::string sumo_config ="src/automotive/examples/sumo_files_v2v_map/map.sumo.cfg";
+
+  // Read the command line options
+  CommandLine cmd (__FILE__);
+  cmd.AddValue ("phyMode", "Wifi Phy mode", phyMode);
+  cmd.AddValue ("verbose", "turn on all WifiNetDevice log components", verbose);
+  cmd.AddValue ("userpriority","EDCA User Priority for the ETSI messages",up);
+  cmd.AddValue ("interfering-userpriority","User Priority for interfering traffic (default: 0, i.e., AC_BE)",interfering_up);
+  cmd.AddValue ("baseline", "Baseline for PRR calculation", m_baseline_prr);
+  cmd.AddValue ("tx-power", "OBUs transmission power [dBm]", txPower);
+  cmd.AddValue ("sim-time", "Total duration of the simulation [s]", simTime);
+  cmd.AddValue ("sionna", "Enable SIONNA usage", sionna);
+  cmd.Parse (argc, argv);
+
+  std::ofstream outFile("src/sionna/setup.txt");
+  if (!outFile.is_open())
+    {
+      std::cerr << "Unable to open file";
+    }
+
+  if (sionna)
+    {
+      outFile << "1";
+      outFile.close();
+    }
+  else
+    {
+      outFile << "0";
+      outFile.close();
+    }
+
+  /* Load the .rou.xml file (SUMO map and scenario) */
+  xmlInitParser();
+  std::string path = sumo_folder + mob_trace;
+  rou_xml_file = xmlParseFile(path.c_str ());
+  if (rou_xml_file == NULL)
+    {
+      NS_FATAL_ERROR("Error: unable to parse the specified XML file: "<<path);
+    }
+  numberOfNodes = XML_rou_count_vehicles(rou_xml_file);
+  xmlFreeDoc(rou_xml_file);
+  xmlCleanupParser();
+
+  // Check if there are enough nodes
+  // This application requires at least three vehicles (as vehicle 3 is the one generating interfering traffic, it should exist)
+  if(numberOfNodes==-1)
+    {
+      NS_FATAL_ERROR("Fatal error: cannot gather the number of vehicles from the specified XML file: "<<path<<". Please check if it is a correct SUMO file.");
+    }
+
+  if(numberOfNodes<3)
+    {
+      NS_FATAL_ERROR("Fatal error: at least three vehicles are required.");
+    }
+
+  Ptr<TraciClient> sumoClient = CreateObject<TraciClient> ();
+
+  if (sionna)
+    {
+      sumoClient->SetSionnaUp();
+    }
+
+  uint64_t numberOfNodes_11p = numberOfNodes / 2;
+  uint64_t numberOfNodes_nr = numberOfNodes / 2;
+
+  // Create numberOfNodes nodes
+  NodeContainer c;
+  c.Create (numberOfNodes_11p);
+
+  YansWifiPhyHelper wifiPhy;
+  wifiPhy.Set ("TxPowerStart", DoubleValue (txPower));
+  wifiPhy.Set ("TxPowerEnd", DoubleValue (txPower));
+  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
+  Ptr<YansWifiChannel> channel = wifiChannel.Create ();
+  wifiPhy.SetChannel (channel);
+  // ns-3 supports generating a pcap trace, to be later analyzed in Wireshark
+  wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11);
+
+  // We need a QosWaveMac, as we need to enable QoS and EDCA
+  QosWaveMacHelper wifi80211pMac = QosWaveMacHelper::Default ();
+  Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
+  if (verbose)
+    {
+      wifi80211p.EnableLogComponents ();      // Turn on all Wifi 802.11p logging, only if verbose is true
+    }
+
+  // Supported "phyMode"s:
+  // OfdmRate3MbpsBW10MHz, OfdmRate6MbpsBW10MHz, OfdmRate9MbpsBW10MHz, OfdmRate12MbpsBW10MHz, OfdmRate18MbpsBW10MHz, OfdmRate24MbpsBW10MHz, OfdmRate27MbpsBW10MHz
+  wifi80211p.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+                                      "DataMode",StringValue (phyMode),
+                                      "ControlMode",StringValue (phyMode),
+                                      "NonUnicastMode",StringValue (phyMode));
+  NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, c);
+
+  // Enable saving to Wireshark PCAP traces
+  wifiPhy.EnablePcap ("v2v-80211p-student-application", devices);
+
+  // Set up the link between SUMO and ns-3, to make each node "mobile" (i.e., linking each ns-3 node to each moving vehicle in ns-3,
+  // which corresponds to installing the network stack to each SUMO vehicle)
+  MobilityHelper mobility;
+  mobility.Install (c);
+
+  Ptr<MetricSupervisor> metSup = NULL;
+  // Set a baseline for the PRR computation when creating a new Metricsupervisor object
+  MetricSupervisor metSupObj(m_baseline_prr);
+  metSup = &metSupObj;
+  metSup->setTraCIClient(sumoClient);
+  // Vehicle 3 should *not* be considered in the computation of latency and PRR, as it generates only interfering traffic
+  metSup->addExcludedID(3);
+  // This function enables printing the current and average latency and PRR for each received packet
+  // metSup->enablePRRVerboseOnStdout ();
+
+  PacketSocketHelper packetSocket;
+  packetSocket.Install(c);
+  TypeId tid = TypeId::LookupByName ("ns3::PacketSocketFactory");
+  Ptr<Socket> source_interfering = Socket::CreateSocket (c.Get (2), tid);
+  PacketSocketAddress local_source_interfering;
+  local_source_interfering.SetSingleDevice (c.Get(2)->GetDevice(0)->GetIfIndex ());
+  local_source_interfering.SetPhysicalAddress (c.Get(2)->GetDevice(0)->GetAddress());
+  local_source_interfering.SetProtocol (0x88B5); // Setting the "Local Experimental Ethertype 1" to send interfering traffic
+  if (source_interfering->Bind (local_source_interfering) == -1)
+    {
+      NS_FATAL_ERROR ("Failed to bind client socket for BTP + GeoNetworking (802.11p)");
+    }
+
+
+  Time slBearersActivationTime = Seconds (2.0);
+
+  NS_ABORT_IF (centralFrequencyBandSl > 6e9);
+
+  /*
+   * Default values for the simulation.
+   */
+  Config::SetDefault ("ns3::LteRlcUm::MaxTxBufferSize", UintegerValue (999999999));
+
+
+  /* Use the realtime scheduler of ns3 */
+  if(realtime)
+    GlobalValue::Bind ("SimulatorImplementationType", StringValue ("ns3::RealtimeSimulatorImpl"));
+
+  Ptr<NrPointToPointEpcHelper> epcHelper = CreateObject<NrPointToPointEpcHelper> ();
+  Ptr<NrHelper> nrHelper = CreateObject<NrHelper> ();
+
+  NodeContainer allSlUesContainer;
+  allSlUesContainer.Create(numberOfNodes_nr);
+
+  mobility.Install (allSlUesContainer);
+
+  // Put the pointers inside nrHelper
+  nrHelper->SetEpcHelper (epcHelper);
+
+  BandwidthPartInfoPtrVector allBwps;
+  CcBwpCreator ccBwpCreator;
+  const uint8_t numCcPerBand = 1;
+
+  CcBwpCreator::SimpleOperationBandConf bandConfSl (centralFrequencyBandSl, bandwidthBandSl, numCcPerBand, BandwidthPartInfo::V2V_Highway);
+  OperationBandInfo bandSl = ccBwpCreator.CreateOperationBandContiguousCc (bandConfSl);
+
+  if (enableChannelRandomness)
+    {
+      Config::SetDefault ("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue (MilliSeconds (channelUpdatePeriod)));
+      nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (channelUpdatePeriod)));
+      nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (true));
+    }
+  else
+    {
+      Config::SetDefault ("ns3::ThreeGppChannelModel::UpdatePeriod", TimeValue (MilliSeconds (0)));
+      nrHelper->SetChannelConditionModelAttribute ("UpdatePeriod", TimeValue (MilliSeconds (0)));
+      nrHelper->SetPathlossAttribute ("ShadowingEnabled", BooleanValue (false));
+    }
+
+  nrHelper->InitializeOperationBand (&bandSl);
+  allBwps = CcBwpCreator::GetAllBwps ({bandSl});
+
+  nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (1));  //following parameter has no impact at the moment because:
+  nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (2));
+  nrHelper->SetUeAntennaAttribute ("AntennaElement", PointerValue (CreateObject<IsotropicAntennaModel> ()));
+
+  nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (txPower));
+
+  nrHelper->SetUeMacAttribute ("EnableSensing", BooleanValue (enableSensing));
+  nrHelper->SetUeMacAttribute ("T1", UintegerValue (static_cast<uint8_t> (t1)));
+  nrHelper->SetUeMacAttribute ("T2", UintegerValue (t2));
+  nrHelper->SetUeMacAttribute ("ActivePoolId", UintegerValue (0));
+  nrHelper->SetUeMacAttribute ("ReservationPeriod", TimeValue (MilliSeconds (reservationPeriod)));
+  nrHelper->SetUeMacAttribute ("NumSidelinkProcess", UintegerValue (4));
+  nrHelper->SetUeMacAttribute ("EnableBlindReTx", BooleanValue (true));
+  nrHelper->SetUeMacAttribute ("SlThresPsschRsrp", IntegerValue (slThresPsschRsrp));
+
+  uint8_t bwpIdForGbrMcptt = 0;
+
+  nrHelper->SetBwpManagerTypeId (TypeId::LookupByName ("ns3::NrSlBwpManagerUe"));
+  nrHelper->SetUeBwpManagerAlgorithmAttribute ("GBR_MC_PUSH_TO_TALK", UintegerValue (bwpIdForGbrMcptt));
+
+  std::set<uint8_t> bwpIdContainer;
+  bwpIdContainer.insert (bwpIdForGbrMcptt);
+
+  NetDeviceContainer allSlUesNetDeviceContainer = nrHelper->InstallUeDevice (allSlUesContainer, allBwps);
+
+  // When all the configuration is done, explicitly call UpdateConfig ()
+  for (auto it = allSlUesNetDeviceContainer.Begin (); it != allSlUesNetDeviceContainer.End (); ++it)
+    {
+      DynamicCast<NrUeNetDevice> (*it)->UpdateConfig ();
+    }
+
+  Ptr<NrSlHelper> nrSlHelper = CreateObject <NrSlHelper> ();
+  // Put the pointers inside NrSlHelper
+  nrSlHelper->SetEpcHelper (epcHelper);
+
+  std::string errorModel = "ns3::NrLteMiErrorModel";
+  nrSlHelper->SetSlErrorModel (errorModel);
+  nrSlHelper->SetUeSlAmcAttribute ("AmcModel", EnumValue (NrAmc::ErrorModel));
+
+  nrSlHelper->SetNrSlSchedulerTypeId (NrSlUeMacSchedulerSimple::GetTypeId());
+  nrSlHelper->SetUeSlSchedulerAttribute ("FixNrSlMcs", BooleanValue (true));
+  nrSlHelper->SetUeSlSchedulerAttribute ("InitialNrSlMcs", UintegerValue (mcs));
+
+  nrSlHelper->PrepareUeForSidelink (allSlUesNetDeviceContainer, bwpIdContainer);
+
+  LteRrcSap::SlResourcePoolNr slResourcePoolNr;
+  //get it from pool factory
+  Ptr<NrSlCommPreconfigResourcePoolFactory> ptrFactory = Create<NrSlCommPreconfigResourcePoolFactory> ();
+
+  std::vector <std::bitset<1> > slBitMapVector;
+  GetSlBitmapFromString (slBitMap, slBitMapVector);
+  NS_ABORT_MSG_IF (slBitMapVector.empty (), "GetSlBitmapFromString failed to generate SL bitmap");
+  ptrFactory->SetSlTimeResources (slBitMapVector);
+  ptrFactory->SetSlSensingWindow (slSensingWindow); // T0 in ms
+  ptrFactory->SetSlSelectionWindow (slSelectionWindow);
+  ptrFactory->SetSlFreqResourcePscch (10); // PSCCH RBs
+  ptrFactory->SetSlSubchannelSize (slSubchannelSize);
+  ptrFactory->SetSlMaxNumPerReserve (slMaxNumPerReserve);
+  //Once parameters are configured, we can create the pool
+  LteRrcSap::SlResourcePoolNr pool = ptrFactory->CreatePool ();
+  slResourcePoolNr = pool;
+
+  //Configure the SlResourcePoolConfigNr IE, which hold a pool and its id
+  LteRrcSap::SlResourcePoolConfigNr slresoPoolConfigNr;
+  slresoPoolConfigNr.haveSlResourcePoolConfigNr = true;
+  //Pool id, ranges from 0 to 15
+  uint16_t poolId = 0;
+  LteRrcSap::SlResourcePoolIdNr slResourcePoolIdNr;
+  slResourcePoolIdNr.id = poolId;
+  slresoPoolConfigNr.slResourcePoolId = slResourcePoolIdNr;
+  slresoPoolConfigNr.slResourcePool = slResourcePoolNr;
+
+  //Configure the SlBwpPoolConfigCommonNr IE, which hold an array of pools
+  LteRrcSap::SlBwpPoolConfigCommonNr slBwpPoolConfigCommonNr;
+  //Array for pools, we insert the pool in the array as per its poolId
+  slBwpPoolConfigCommonNr.slTxPoolSelectedNormal [slResourcePoolIdNr.id] = slresoPoolConfigNr;
+
+  LteRrcSap::Bwp bwp;
+  bwp.numerology = numerologyBwpSl;
+  bwp.symbolsPerSlots = 14;
+  bwp.rbPerRbg = 1;
+  bwp.bandwidth = bandwidthBandSl;
+
+  //Configure the SlBwpGeneric IE
+  LteRrcSap::SlBwpGeneric slBwpGeneric;
+  slBwpGeneric.bwp = bwp;
+  slBwpGeneric.slLengthSymbols = LteRrcSap::GetSlLengthSymbolsEnum (14);
+  slBwpGeneric.slStartSymbol = LteRrcSap::GetSlStartSymbolEnum (0);
+
+  //Configure the SlBwpConfigCommonNr IE
+  LteRrcSap::SlBwpConfigCommonNr slBwpConfigCommonNr;
+  slBwpConfigCommonNr.haveSlBwpGeneric = true;
+  slBwpConfigCommonNr.slBwpGeneric = slBwpGeneric;
+  slBwpConfigCommonNr.haveSlBwpPoolConfigCommonNr = true;
+  slBwpConfigCommonNr.slBwpPoolConfigCommonNr = slBwpPoolConfigCommonNr;
+
+  //Configure the SlFreqConfigCommonNr IE, which hold the array to store
+  //the configuration of all Sidelink BWP (s).
+  LteRrcSap::SlFreqConfigCommonNr slFreConfigCommonNr;
+  //Array for BWPs. Here we will iterate over the BWPs, which
+  //we want to use for SL.
+  for (const auto &it:bwpIdContainer)
+    {
+      // it is the BWP id
+      slFreConfigCommonNr.slBwpList [it] = slBwpConfigCommonNr;
+    }
+
+  //Configure the TddUlDlConfigCommon IE
+  LteRrcSap::TddUlDlConfigCommon tddUlDlConfigCommon;
+  tddUlDlConfigCommon.tddPattern = tddPattern;
+
+  //Configure the SlPreconfigGeneralNr IE
+  LteRrcSap::SlPreconfigGeneralNr slPreconfigGeneralNr;
+  slPreconfigGeneralNr.slTddConfig = tddUlDlConfigCommon;
+
+  //Configure the SlUeSelectedConfig IE
+  LteRrcSap::SlUeSelectedConfig slUeSelectedPreConfig;
+  NS_ABORT_MSG_UNLESS (slProbResourceKeep <= 1.0, "slProbResourceKeep value must be between 0 and 1");
+  slUeSelectedPreConfig.slProbResourceKeep = slProbResourceKeep;
+  //Configure the SlPsschTxParameters IE
+  LteRrcSap::SlPsschTxParameters psschParams;
+  psschParams.slMaxTxTransNumPssch = static_cast<uint8_t> (slMaxTxTransNumPssch);
+  //Configure the SlPsschTxConfigList IE
+  LteRrcSap::SlPsschTxConfigList pscchTxConfigList;
+  pscchTxConfigList.slPsschTxParameters [0] = psschParams;
+  slUeSelectedPreConfig.slPsschTxConfigList = pscchTxConfigList;
+
+  /*
+   * Finally, configure the SidelinkPreconfigNr. This is the main structure
+   * that needs to be communicated to NrSlUeRrc class
+   */
+  LteRrcSap::SidelinkPreconfigNr slPreConfigNr;
+  slPreConfigNr.slPreconfigGeneral = slPreconfigGeneralNr;
+  slPreConfigNr.slUeSelectedPreConfig = slUeSelectedPreConfig;
+  slPreConfigNr.slPreconfigFreqInfoList [0] = slFreConfigCommonNr;
+
+  //Communicate the above pre-configuration to the NrSlHelper
+  nrSlHelper->InstallNrSlPreConfiguration (allSlUesNetDeviceContainer, slPreConfigNr);
+
+  int64_t stream = 1;
+  stream += nrHelper->AssignStreams (allSlUesNetDeviceContainer, stream);
+  stream += nrSlHelper->AssignStreams (allSlUesNetDeviceContainer, stream);
+
+  NodeContainer txSlUes;
+  NodeContainer rxSlUes;
+  NetDeviceContainer txSlUesNetDevice;
+  NetDeviceContainer rxSlUesNetDevice;
+  txSlUes.Add (allSlUesContainer);
+  rxSlUes.Add (allSlUesContainer);
+  txSlUesNetDevice.Add (allSlUesNetDeviceContainer);
+  rxSlUesNetDevice.Add (allSlUesNetDeviceContainer);
+
+  InternetStackHelper internet;
+  internet.Install (allSlUesContainer);
+  uint32_t dstL2Id = 255;
+  Ipv4Address groupAddress4 ("225.0.0.0");     //use multicast address as destination
+
+  Address remoteAddress;
+  Address localAddress;
+  uint16_t port = 8000;
+  Ptr<LteSlTft> tft;
+
+  Ipv4InterfaceContainer ueIpIface;
+  ueIpIface = epcHelper->AssignUeIpv4Address (allSlUesNetDeviceContainer);
+
+  // set the default gateway for the UE
+  Ipv4StaticRoutingHelper ipv4RoutingHelper;
+  for (uint32_t u = 0; u < allSlUesContainer.GetN (); ++u)
+    {
+      Ptr<Node> ueNode = allSlUesContainer.Get (u);
+      // Set the default gateway for the UE
+      Ptr<Ipv4StaticRouting> ueStaticRouting = ipv4RoutingHelper.GetStaticRouting (ueNode->GetObject<Ipv4> ());
+      ueStaticRouting->SetDefaultRoute (epcHelper->GetUeDefaultGatewayAddress (), 1);
+    }
+  remoteAddress = InetSocketAddress (groupAddress4, port);
+  localAddress = InetSocketAddress (Ipv4Address::GetAny (), port);
+
+  tft = Create<LteSlTft> (LteSlTft::Direction::TRANSMIT, LteSlTft::CommType::GroupCast, groupAddress4, dstL2Id);
+  //Set Sidelink bearers
+  nrSlHelper->ActivateNrSlBearer (slBearersActivationTime, allSlUesNetDeviceContainer, tft);
+
+  tft = Create<LteSlTft> (LteSlTft::Direction::RECEIVE, LteSlTft::CommType::GroupCast, groupAddress4, dstL2Id);
+  //Set Sidelink bearers
+  nrSlHelper->ActivateNrSlBearer (slBearersActivationTime, allSlUesNetDeviceContainer, tft);
+
+  sumoClient->SetAttribute ("SumoConfigPath", StringValue (sumo_config));
+  sumoClient->SetAttribute ("SumoBinaryPath", StringValue (""));    // use system installation of sumo
+  sumoClient->SetAttribute ("SynchInterval", TimeValue (Seconds (0.01)));
+  sumoClient->SetAttribute ("StartTime", TimeValue (Seconds (0.0)));
+  sumoClient->SetAttribute ("SumoGUI", BooleanValue (true));
+  sumoClient->SetAttribute ("SumoPort", UintegerValue (3400));
+  sumoClient->SetAttribute ("PenetrationRate", DoubleValue (1.0));
+  sumoClient->SetAttribute ("SumoLogFile", BooleanValue (false));
+  sumoClient->SetAttribute ("SumoStepLog", BooleanValue (false));
+  sumoClient->SetAttribute ("SumoSeed", IntegerValue (10));
+  sumoClient->SetAttribute ("SumoWaitForSocket", TimeValue (Seconds (1.0)));
+
+
+  std::cout << "A transmission power of " << txPower << " dBm  will be used." << std::endl;
+
+  std::cout << "Starting simulation... " << std::endl;
+
+  STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID, TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
+  {
+    unsigned long nodeID = std::stol(vehicleID.substr (3))-1;
+
+    Ptr<Socket> sock;
+    sock=GeoNet::createGNPacketSocket(c.Get(nodeID));
+    sock->SetPriority (up);
+
+    Ptr<BSContainer> bs_container = CreateObject<BSContainer>(std::stol(vehicleID.substr(3)),StationType_passengerCar,sumoClient,false,sock);
+    bs_container->linkMetricSupervisor(metSup);
+    bs_container->disablePRRSupervisorForGNBeacons ();
+    bs_container->addCAMRxCallback (std::bind(&receiveCAM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4,std::placeholders::_5));
+    bs_container->setupContainer(true,false,false,false);
+    basicServices.add(bs_container);
+    std::srand(Simulator::Now().GetNanoSeconds ()*2); // Seed based on the simulation time to give each vehicle a different random seed
+    double desync = ((double)std::rand()/RAND_MAX);
+    bs_container->getCABasicService ()->startCamDissemination (desync);
+
+    return c.Get(nodeID);
+  };
+
+  // Important: what you write here is called every time a node exits the simulation in SUMO
+  // You can safely keep this function as it is, and ignore it
+  SHUTDOWN_FCN shutdownWifiNode = [] (Ptr<Node> exNode, std::string vehicleID)
+  {
+    /* Set position outside communication range */
+    Ptr<ConstantPositionMobilityModel> mob = exNode->GetObject<ConstantPositionMobilityModel>();
+    mob->SetPosition(Vector(-1000.0+(rand()%25),320.0+(rand()%25),250.0));
+    unsigned long intVehicleID = std::stol(vehicleID.substr (3));
+
+    Ptr<BSContainer> bsc = basicServices.get(intVehicleID);
+    bsc->cleanup();
+  };
+
+  // Link ns-3 and SUMO
+  sumoClient->SumoSetup (setupNewWifiNode, shutdownWifiNode);
+
+  // Start simulation, which will last for simTime seconds
+  Simulator::Stop (Seconds(simTime));
+  Simulator::Run ();
+
+  // When the simulation is terminated, gather the most relevant metrics from the PRRsupervisor
+  std::cout << "Run terminated..." << std::endl;
+
+  std::cout << "Average PRR: " << metSup->getAveragePRR_overall () << std::endl;
+  std::cout << "Average latency (ms): " << metSup->getAverageLatency_overall () << std::endl;
+
+  std::cout << "Average latency veh 1 (ms): " << metSup->getAverageLatency_vehicle (1) << std::endl;
+  std::cout << "Average latency veh 2 (ms): " << metSup->getAverageLatency_vehicle (2) << std::endl;
+  std::cout << "Average latency veh 3 (ms): " << metSup->getAverageLatency_vehicle (3) << std::endl; // Should return 0, as this vehicle generated only interfering traffic, and it is ignored by the PRRsupervisor
+  std::cout << "Average latency veh 4 (ms): " << metSup->getAverageLatency_vehicle (4) << std::endl;
+
+  std::cout << "RX packet count: " << packet_count << std::endl;
+  std::cout << "RX packet count (from PRR Supervisor): " << metSup->getNumberRx_overall () << std::endl;
+  std::cout << "TX packet count (from PRR Supervisor): " << metSup->getNumberTx_overall () << std::endl;
+  std::cout << "Average number of vehicle within the " << m_baseline_prr << " m baseline: " << metSup->getAverageNumberOfVehiclesInBaseline_overall () << std::endl;
+
+  Simulator::Destroy ();
+
+  // Delete the file at the end of the simulation
+  if (remove("src/sionna/setup.txt") != 0)
+    {
+      std::cerr << "Error deleting Sionna file";
+    }
+  else
+    {
+      std::cout << "Sionna file successfully deleted";
+    }
+
+
+  return 0;
+}
+

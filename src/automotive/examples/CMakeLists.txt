@@ -125,3 +125,12 @@ build_lib_example(
 #        ${libtraci}
 #)
 
+build_lib_example(
+        NAME v2v-simple-cam-exchange-80211p-nrv2x
+        SOURCE_FILES v2v-simple-cam-exchange-80211p-nrv2x.cc
+        LIBRARIES_TO_LINK
+        ${libautomotive}
+        ${libwave}
+        ${libnr}
+        ${libtraci}
+)
