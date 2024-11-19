@@ -117,7 +117,13 @@ static int packet_count=0;
 BSMap basicServices; // Container for all ETSI Basic Services, installed on all vehicles
 void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, StationType_t my_StationType, SignalInfo phy_info)
 {
-  // std::cout << "Received CAM from station " << my_stationID << std::endl;
+  std::ofstream camFile;
+  camFile.open("cam_info.txt", std::ios::out | std::ios::app);
+  if (!camFile.is_open())
+    {
+      std::cerr << "Unable to open file to save CAM information";
+    }
+  camFile << "Station " << my_stationID << " received from " << cam->header.stationId << std::endl;
   packet_count++;
 }
 
@@ -293,8 +299,6 @@ int main (int argc, char *argv[])
 
   PacketSocketHelper packetSocket;
   packetSocket.Install(wifiNodes);
-  TypeId tid = TypeId::LookupByName ("ns3::PacketSocketFactory");
-
 
   Time slBearersActivationTime = Seconds (2.0);
 
@@ -550,22 +554,36 @@ int main (int argc, char *argv[])
   STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID, TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
   {
     bool wifi;
-    unsigned long nodeID;
+    unsigned long nodeID = std::stol(vehicleID.substr (3))-1;
 
-    if (nodeCounter < numberOfNodes_11p - 1)
+    if (nodeID < numberOfNodes_11p)
       {
         wifi = true;
-        nodeID = std::stol(vehicleID.substr (3))-1;
       }
     else
       {
         wifi = false;
-        nodeID = std::stol(vehicleID.substr (3))-1;
         nodeID -= numberOfNodes_11p;
       }
 
     Ptr<Socket> sock;
-    sock = wifi ? GeoNet::createGNPacketSocket(wifiNodes.Get(nodeID)) : GeoNet::createGNPacketSocket(nrNodes.Get(nodeID));
+    if (wifi)
+      {
+        sock = GeoNet::createGNPacketSocket(wifiNodes.Get(nodeID));
+      }
+    else
+      {
+        TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
+        Ptr<Node> includedNode = nrNodes.Get(nodeID);
+        sock = Socket::CreateSocket (includedNode, tid);
+        if (sock->Bind (InetSocketAddress (Ipv4Address::GetAny (), 19)) == -1)
+          {
+            NS_FATAL_ERROR ("Failed to bind client socket for NR-V2X");
+          }
+        Ipv4Address groupAddress4 ("225.0.0.0");
+        sock->Connect (InetSocketAddress (groupAddress4, 19));
+      }
+
     sock->SetPriority (up);
 
     Ptr<BSContainer> bs_container = CreateObject<BSContainer>(std::stol(vehicleID.substr(3)),StationType_passengerCar,sumoClient,false,sock);
@@ -608,11 +626,6 @@ int main (int argc, char *argv[])
 
   std::cout << "Average PRR: " << metSup->getAveragePRR_overall () << std::endl;
   std::cout << "Average latency (ms): " << metSup->getAverageLatency_overall () << std::endl;
-
-  std::cout << "Average latency veh 1 (ms): " << metSup->getAverageLatency_vehicle (1) << std::endl;
-  std::cout << "Average latency veh 2 (ms): " << metSup->getAverageLatency_vehicle (2) << std::endl;
-  std::cout << "Average latency veh 3 (ms): " << metSup->getAverageLatency_vehicle (3) << std::endl; // Should return 0, as this vehicle generated only interfering traffic, and it is ignored by the PRRsupervisor
-  std::cout << "Average latency veh 4 (ms): " << metSup->getAverageLatency_vehicle (4) << std::endl;
 
   std::cout << "RX packet count: " << packet_count << std::endl;
   std::cout << "RX packet count (from PRR Supervisor): " << metSup->getNumberRx_overall () << std::endl;
