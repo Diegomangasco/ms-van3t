@@ -16,30 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr> (initial IEEE 802.11p example)
- * Author: Junling Bu <linlinjavaer@gmail.com> (initial IEEE 802.11p example)
- * Author: Francesco Raviglione <francescorav.es483@gmail.com> (IEEE 802.11p simple CAM exchange application)
- *
- * This is a simple example of a ms-van3t V2V communication scenario configured with a single .cc file,
- * where vehicles exchange Cooperative Awareness Messages (CAMs) using the IEEE 802.11p standard.
- * The user can specify several parameters, including the priority (Access Category) for the transmission
- * of CAMs. BSContainers are used to simplify the configuration of the ETSI C-ITS stack of each vehicle.
- * In this scenario, all vehicles transmit CAMs according to the ETSI standards, and one vehicle (vehicle 3)
- * sends a heavy interfering traffic, without useful informative content, to simulate a congested channel.
- * Through the --interfering-userpriority option, the user can specify the Access Category (AC) for the
- * interfering traffic, which is broadcasted by vehicle 3.
- * When a new CAM is received by one of the vehicles, the callback "receiveCAM()" is called, and the stationID of
- * the received is available in "my_stationID".
- * Currently, the function just counts the total number of CAMs, but it can be customized to impement more complex
- * approaches.
- * As output, the simulation provides, thanks to the PRRSupervisor module, the average latency and PRR over the
- * whole simulation, and the average one-way latency for each vehicle up to vehicle 4.
- * The reported latency of vehicle 3 is expected to be 0 as it transmits interfering traffic (so, no ETSI-compliant
- * message is transmitted), that is not considered by the PRRSupervisor.
  */
-
-// TODO rename 11p container (now is "c"), manage the STARTUP_FCN with two device containers
 
 // 802.11p
 #include "ns3/vector.h"
@@ -127,29 +104,10 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
   packet_count++;
 }
 
-static void GenerateTraffic_interfering (Ptr<Socket> socket, uint32_t pktSize,
-                             uint32_t pktCount, Time pktInterval )
-{
-  // Generate interfering traffic by sending pktCount packets (filled in with zeros), every pktInterval
-  if (pktCount > 0)
-    {
-      // "Create<Packet> (pktSize)" creates a new packet of size pktSize bytes, composed by default by all zeros
-      socket->Send (Create<Packet> (pktSize));
-      // Schedule again the same function (to send the next packet), and decrease by one the packet count
-      Simulator::Schedule (pktInterval, &GenerateTraffic_interfering,
-                           socket, pktSize,pktCount - 1, pktInterval);
-    }
-  else
-    {
-      socket->Close ();
-    }
-}
-
 int main (int argc, char *argv[])
 {
   std::string phyMode ("OfdmRate6MbpsBW10MHz");
   int up = 0;
-  int interfering_up = 0;
   bool realtime = false;
   bool verbose = false; // Set to true to get a lot of verbose output from the IEEE 802.11p PHY model (leave this to false)
   int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
@@ -192,7 +150,6 @@ int main (int argc, char *argv[])
   cmd.AddValue ("phyMode", "Wifi Phy mode", phyMode);
   cmd.AddValue ("verbose", "turn on all WifiNetDevice log components", verbose);
   cmd.AddValue ("userpriority","EDCA User Priority for the ETSI messages",up);
-  cmd.AddValue ("interfering-userpriority","User Priority for interfering traffic (default: 0, i.e., AC_BE)",interfering_up);
   cmd.AddValue ("baseline", "Baseline for PRR calculation", m_baseline_prr);
   cmd.AddValue ("tx-power", "OBUs transmission power [dBm]", txPower);
   cmd.AddValue ("sim-time", "Total duration of the simulation [s]", simTime);
