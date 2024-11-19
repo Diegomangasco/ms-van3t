@@ -152,7 +152,7 @@ MetricSupervisor::signalSentPacket(std::string buf, double lat, double lon, uint
 }
 
 void
-MetricSupervisor::signalReceivedPacket(std::string buf, uint64_t nodeID)
+MetricSupervisor::signalReceivedPacket(std::string buf, uint64_t nodeID, double sinr)
 {
   baselineVehicleData_t currBaselineData;
   double curr_latency_ms = DBL_MAX;
@@ -183,6 +183,9 @@ MetricSupervisor::signalReceivedPacket(std::string buf, uint64_t nodeID)
   messageType_e messagetype = m_messagetype_map[buf];
   StationType_t station_type = m_stationtype_map[buf];
   uint64_t senderID = m_id_map[buf];
+
+  // Compute SINR
+  m_sinr_per_veh[nodeID].push_back (sinr);
 
   // Compute latency in ms
   if(m_latency_map.count(buf)>0)

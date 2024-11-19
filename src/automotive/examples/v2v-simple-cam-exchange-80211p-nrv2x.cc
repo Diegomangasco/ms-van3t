@@ -250,6 +250,20 @@ int main (int argc, char *argv[])
   uint64_t numberOfNodes_11p = numberOfNodes / 2;
   uint64_t numberOfNodes_nr = numberOfNodes / 2;
 
+  Ptr<MetricSupervisor> metSup_11p = NULL;
+  // Set a baseline for the PRR computation when creating a new Metricsupervisor object
+  MetricSupervisor metSupObj_11p(m_baseline_prr);
+  metSup_11p = &metSupObj_11p;
+  metSup_11p->setTraCIClient(sumoClient);
+  // This function enables printing the current and average latency and PRR for each received packet
+  // metSup->enablePRRVerboseOnStdout ();
+
+  Ptr<MetricSupervisor> metSup_nr = NULL;
+  // Set a baseline for the PRR computation when creating a new Metricsupervisor object
+  MetricSupervisor metSupObj_nr(m_baseline_prr);
+  metSup_nr = &metSupObj_nr;
+  metSup_nr->setTraCIClient(sumoClient);
+
   // Create numberOfNodes nodes
   NodeContainer wifiNodes;
   wifiNodes.Create (numberOfNodes_11p);
@@ -280,22 +294,12 @@ int main (int argc, char *argv[])
   NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, wifiNodes);
 
   // Enable saving to Wireshark PCAP traces
-  wifiPhy.EnablePcap ("v2v-80211p-student-application", devices);
+  // wifiPhy.EnablePcap ("v2v-80211p-student-application", devices);
 
   // Set up the link between SUMO and ns-3, to make each node "mobile" (i.e., linking each ns-3 node to each moving vehicle in ns-3,
   // which corresponds to installing the network stack to each SUMO vehicle)
   MobilityHelper mobility;
   mobility.Install (wifiNodes);
-
-  Ptr<MetricSupervisor> metSup = NULL;
-  // Set a baseline for the PRR computation when creating a new Metricsupervisor object
-  MetricSupervisor metSupObj(m_baseline_prr);
-  metSup = &metSupObj;
-  metSup->setTraCIClient(sumoClient);
-  // Vehicle 3 should *not* be considered in the computation of latency and PRR, as it generates only interfering traffic
-  metSup->addExcludedID(3);
-  // This function enables printing the current and average latency and PRR for each received packet
-  // metSup->enablePRRVerboseOnStdout ();
 
   PacketSocketHelper packetSocket;
   packetSocket.Install(wifiNodes);
@@ -554,7 +558,8 @@ int main (int argc, char *argv[])
   STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID, TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
   {
     bool wifi;
-    unsigned long nodeID = std::stol(vehicleID.substr (3))-1;
+    unsigned long vehID = std::stol(vehicleID.substr (3));
+    unsigned long nodeID = vehID - 1;
 
     if (nodeID < numberOfNodes_11p)
       {
@@ -570,6 +575,7 @@ int main (int argc, char *argv[])
     if (wifi)
       {
         sock = GeoNet::createGNPacketSocket(wifiNodes.Get(nodeID));
+        metSup_nr->addExcludedID (vehID);
       }
     else
       {
@@ -582,14 +588,22 @@ int main (int argc, char *argv[])
           }
         Ipv4Address groupAddress4 ("225.0.0.0");
         sock->Connect (InetSocketAddress (groupAddress4, 19));
+        metSup_11p->addExcludedID (vehID);
       }
 
     sock->SetPriority (up);
 
-    Ptr<BSContainer> bs_container = CreateObject<BSContainer>(std::stol(vehicleID.substr(3)),StationType_passengerCar,sumoClient,false,sock);
-    bs_container->linkMetricSupervisor(metSup);
-    bs_container->disablePRRSupervisorForGNBeacons ();
+    Ptr<BSContainer> bs_container = CreateObject<BSContainer>(vehID,StationType_passengerCar,sumoClient,false,sock);
     bs_container->addCAMRxCallback (std::bind(&receiveCAM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4,std::placeholders::_5));
+    if(wifi)
+      {
+        bs_container->linkMetricSupervisor (metSup_11p);
+      }
+    else
+      {
+        bs_container->linkMetricSupervisor (metSup_nr);
+      }
+    bs_container->disablePRRSupervisorForGNBeacons();
     bs_container->setupContainer(true,false,false,false);
     basicServices.add(bs_container);
     std::srand(Simulator::Now().GetNanoSeconds ()*2); // Seed based on the simulation time to give each vehicle a different random seed
@@ -624,24 +638,34 @@ int main (int argc, char *argv[])
   // When the simulation is terminated, gather the most relevant metrics from the PRRsupervisor
   std::cout << "Run terminated..." << std::endl;
 
-  std::cout << "Average PRR: " << metSup->getAveragePRR_overall () << std::endl;
-  std::cout << "Average latency (ms): " << metSup->getAverageLatency_overall () << std::endl;
+  std::cout << "\nTotal number of CAMs received: " << packet_count << std::endl;
 
-  std::cout << "RX packet count: " << packet_count << std::endl;
-  std::cout << "RX packet count (from PRR Supervisor): " << metSup->getNumberRx_overall () << std::endl;
-  std::cout << "TX packet count (from PRR Supervisor): " << metSup->getNumberTx_overall () << std::endl;
-  std::cout << "Average number of vehicle within the " << m_baseline_prr << " m baseline: " << metSup->getAverageNumberOfVehiclesInBaseline_overall () << std::endl;
+  std::cout << "\nMetric Supervisor statistics for 802.11p" << std::endl;
+  std::cout << "Average PRR: " << metSup_11p->getAveragePRR_overall () << std::endl;
+  std::cout << "Average latency (ms): " << metSup_11p->getAverageLatency_overall () << std::endl;
+  std::cout << "Average SINR (dB): " << metSup_11p->getAverageSINR_overall() << std::endl;
+  std::cout << "RX packet count (from PRR Supervisor): " << metSup_11p->getNumberRx_overall () << std::endl;
+  std::cout << "TX packet count (from PRR Supervisor): " << metSup_11p->getNumberTx_overall () << std::endl;
+  // std::cout << "Average number of vehicle within the " << m_baseline_prr << " m baseline: " << metSup_11p->getAverageNumberOfVehiclesInBaseline_overall () << std::endl;
+
+  std::cout << "\nMetric Supervisor statistics for NR-V2X" << std::endl;
+  std::cout << "Average PRR: " << metSup_nr->getAveragePRR_overall () << std::endl;
+  std::cout << "Average latency (ms): " << metSup_nr->getAverageLatency_overall () << std::endl;
+  std::cout << "Average SINR (dB): " << metSup_nr->getAverageSINR_overall() << std::endl;
+  std::cout << "RX packet count (from PRR Supervisor): " << metSup_nr->getNumberRx_overall () << std::endl;
+  std::cout << "TX packet count (from PRR Supervisor): " << metSup_nr->getNumberTx_overall () << std::endl;
+  // std::cout << "Average number of vehicle within the " << m_baseline_prr << " m baseline: " << metSup_nr->getAverageNumberOfVehiclesInBaseline_overall () << std::endl;
 
   Simulator::Destroy ();
 
   // Delete the file at the end of the simulation
   if (remove("src/sionna/setup.txt") != 0)
     {
-      std::cerr << "Error deleting Sionna file";
+      std::cerr << "\nError deleting Sionna file";
     }
   else
     {
-      std::cout << "Sionna file successfully deleted";
+      std::cout << "\nSionna file successfully deleted";
     }
 
 
