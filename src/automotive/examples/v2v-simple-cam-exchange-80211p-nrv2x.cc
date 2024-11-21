@@ -58,6 +58,8 @@
 #include <unistd.h>
 #include "ns3/core-module.h"
 
+#include "ns3/csv-utils.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("V2VSimpleCAMExchange80211pNrv2x");
@@ -91,7 +93,9 @@ GetSlBitmapFromString (std::string slBitMapString, std::vector <std::bitset<1> >
 }
 
 static int packet_count=0;
+
 BSMap basicServices; // Container for all ETSI Basic Services, installed on all vehicles
+
 void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, StationType_t my_StationType, SignalInfo phy_info)
 {
   std::ofstream camFile;
@@ -102,17 +106,33 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
     }
   camFile << "Station " << my_stationID << " received from " << cam->header.stationId << std::endl;
   packet_count++;
+
+  /*libsumo::TraCIPosition pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::vehicle.getPosition("veh" + std::to_string(my_stationID));
+  pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::simulation.convertXYtoLonLat(pos.x,pos.y);
+
+  // Get the position of the sender
+  double lat_sender=asn1cpp::getField(cam->cam.camParameters.basicContainer.referencePosition.latitude,double)/1e7;
+  double lon_sender=asn1cpp::getField(cam->cam.camParameters.basicContainer.referencePosition.longitude,double)/1e7;
+
+  // Compute the distance between the sender and the receiver
+  double distance= haversineDist (lat_sender, lon_sender, pos.y, pos.x);
+
+  // Save the signalInfo information to a CSV file
+  writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
 }
 
 int main (int argc, char *argv[])
 {
-  std::string phyMode ("OfdmRate6MbpsBW10MHz");
+  // std::string phyMode ("OfdmRate6MbpsBW10MHz");
+  std::string phyMode ("OfdmRate3MbpsBW10MHz");
   int up = 0;
   bool realtime = false;
-  bool verbose = false; // Set to true to get a lot of verbose output from the IEEE 802.11p PHY model (leave this to false)
+  bool verbose = false; // Set to true to get a lot of verbose output from the PHY model (leave this to false)
   int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
   double m_baseline_prr = 150.0; // PRR baseline value (default: 150 m)
-  int txPower = 23.0; // IEEE 802.11p transmission power in dBm (default: 23 dBm)
+  int txPower = 30.0; // Transmission power in dBm (default: 23 dBm)
+  double sensitivity = -93.0;
+  double snr_threshold = 4; // Default value
   xmlDocPtr rou_xml_file;
   double simTime = 100.0; // Total simulation time (default: 100 seconds)
 
@@ -213,13 +233,14 @@ int main (int argc, char *argv[])
   metSup_11p = &metSupObj_11p;
   metSup_11p->setTraCIClient(sumoClient);
   // This function enables printing the current and average latency and PRR for each received packet
-  // metSup->enablePRRVerboseOnStdout ();
+  // metSup_11p->enablePRRVerboseOnStdout ();
 
   Ptr<MetricSupervisor> metSup_nr = NULL;
   // Set a baseline for the PRR computation when creating a new Metricsupervisor object
   MetricSupervisor metSupObj_nr(m_baseline_prr);
   metSup_nr = &metSupObj_nr;
   metSup_nr->setTraCIClient(sumoClient);
+  // metSup_nr->enablePRRVerboseOnStdout ();
 
   // Create numberOfNodes nodes
   NodeContainer wifiNodes;
@@ -228,6 +249,9 @@ int main (int argc, char *argv[])
   YansWifiPhyHelper wifiPhy;
   wifiPhy.Set ("TxPowerStart", DoubleValue (txPower));
   wifiPhy.Set ("TxPowerEnd", DoubleValue (txPower));
+  wifiPhy.SetPreambleDetectionModel ("ns3::ThresholdPreambleDetectionModel",
+                                     "MinimumRssi", DoubleValue (sensitivity),
+                                      "Threshold", DoubleValue (snr_threshold));
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
   Ptr<YansWifiChannel> channel = wifiChannel.Create ();
   wifiPhy.SetChannel (channel);
@@ -314,6 +338,8 @@ int main (int argc, char *argv[])
   nrHelper->SetUeAntennaAttribute ("AntennaElement", PointerValue (CreateObject<IsotropicAntennaModel> ()));
 
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (txPower));
+  nrHelper->SetUePhyAttribute ("RiSinrThreshold1", DoubleValue (snr_threshold));
+  nrHelper->SetUePhyAttribute ("RiSinrThreshold2", DoubleValue (snr_threshold));
 
   nrHelper->SetUeMacAttribute ("EnableSensing", BooleanValue (enableSensing));
   nrHelper->SetUeMacAttribute ("T1", UintegerValue (static_cast<uint8_t> (t1)));
@@ -528,11 +554,17 @@ int main (int argc, char *argv[])
         nodeID -= numberOfNodes_11p;
       }
 
+      Ptr<NetDevice> netDevice;
+
     Ptr<Socket> sock;
     if (wifi)
       {
         sock = GeoNet::createGNPacketSocket(wifiNodes.Get(nodeID));
         metSup_nr->addExcludedID (vehID);
+
+        netDevice = wifiNodes.Get(nodeID)->GetDevice(0);
+        Ptr<WifiNetDevice> wifiDevice = DynamicCast<WifiNetDevice>(netDevice);
+        wifiDevice->GetPhy()->SetRxSensitivity (sensitivity);
       }
     else
       {
@@ -546,12 +578,19 @@ int main (int argc, char *argv[])
         Ipv4Address groupAddress4 ("225.0.0.0");
         sock->Connect (InetSocketAddress (groupAddress4, 19));
         metSup_11p->addExcludedID (vehID);
+
+        netDevice = nrNodes.Get(nodeID)->GetDevice(0);
+        Ptr<NrNetDevice> nrDevice = DynamicCast<NrNetDevice>(netDevice);
+        // TODO add the GetTxPowerSpectralDensity method in SignalInfo/NR/nr-spectrum-phy.h
+        // TODO add the GetTxPowerSpectralDensity method in SignalInfo/NR/nr-spectrum-phy.cc
+        Ptr<SpectrumValue> v = nrHelper->GetUePhy (netDevice, 0)->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
+        // nrHelper->GetUePhy (netDevice, 0)->SetRiSinrThreshold1 (sinr);
       }
 
-    sock->SetPriority (up);
+    // sock->SetPriority (up);
 
     Ptr<BSContainer> bs_container = CreateObject<BSContainer>(vehID,StationType_passengerCar,sumoClient,false,sock);
-    bs_container->addCAMRxCallback (std::bind(&receiveCAM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3,std::placeholders::_4,std::placeholders::_5));
+    bs_container->addCAMRxCallback (std::bind(&receiveCAM, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5));
     if(wifi)
       {
         bs_container->linkMetricSupervisor (metSup_11p);

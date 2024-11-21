@@ -565,7 +565,7 @@ MetricSupervisor::startCheckCBR ()
 
   if (m_channel_technology == "80211p")
     {
-      Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&storeCBR80211p));
+      Config::Connect("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&storeCBR80211p));
     } else if (m_channel_technology == "Nr")
     {
       Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/ChannelOccupied", MakeCallback(&storeCBRNr));

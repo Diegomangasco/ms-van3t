@@ -89,7 +89,7 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
 static void GenerateTraffic_interfering (Ptr<Socket> socket, uint32_t pktSize,
                              uint32_t pktCount, Time pktInterval )
 {
-  // Generate interfering traffic by sending pktCount packets (filled in with zeros), every pktInterval
+  /*// Generate interfering traffic by sending pktCount packets (filled in with zeros), every pktInterval
   if (pktCount > 0)
     {
       // "Create<Packet> (pktSize)" creates a new packet of size pktSize bytes, composed by default by all zeros
@@ -101,7 +101,7 @@ static void GenerateTraffic_interfering (Ptr<Socket> socket, uint32_t pktSize,
   else
     {
       socket->Close ();
-    }
+    }*/
 }
 
 int main (int argc, char *argv[])
@@ -223,7 +223,7 @@ int main (int argc, char *argv[])
   metSup = &metSupObj;
   metSup->setTraCIClient(sumoClient);
   // Vehicle 3 should *not* be considered in the computation of latency and PRR, as it generates only interfering traffic
-  metSup->addExcludedID(3);
+  // metSup->addExcludedID(3);
   // This function enables printing the current and average latency and PRR for each received packet
   // metSup->enablePRRVerboseOnStdout ();
 
@@ -245,14 +245,14 @@ int main (int argc, char *argv[])
   {
     NS_FATAL_ERROR ("Failed to bind client socket for BTP + GeoNetworking (802.11p)");
   }
-  PacketSocketAddress remote_source_interfering;
+  /*PacketSocketAddress remote_source_interfering;
   remote_source_interfering.SetSingleDevice (c.Get(2)->GetDevice(0)->GetIfIndex());
   // Set the broadcast MAC address as interfering traffic will be broadcasted by vehicle 3
   remote_source_interfering.SetPhysicalAddress (c.Get(2)->GetDevice(0)->GetBroadcast());
   remote_source_interfering.SetProtocol (0x88B5); // Setting the "Local Experimental Ethertype 1" to send interfering traffic
   source_interfering->Connect (remote_source_interfering);
    // Important: this line lets you set the AC of the interfering traffic, through a User Priority (UP) value, like in real Linux kernels/OS
-  source_interfering->SetPriority (interfering_up); // Setting the priority of the interfering traffic from vehicle 3
+  source_interfering->SetPriority (interfering_up); // Setting the priority of the interfering traffic from vehicle 3*/
 
   std::cout << "A transmission power of " << txPower << " dBm  will be used." << std::endl;
 
@@ -274,12 +274,12 @@ int main (int argc, char *argv[])
         // - each interfering traffic packet will be quite large (2000 Bytes)
         // - interfering traffic is set to last for "simTime*1000" packets, as we send each interfering packet every 1 ms and simTime is specified in seconds
         // - interfering packets will be sent every 1 ms ("MilliSeconds (1)"), to analyse a scenario with a relatively congested channel
-        Simulator::ScheduleWithContext (source_interfering->GetNode ()->GetId (),
+        /*Simulator::ScheduleWithContext (source_interfering->GetNode ()->GetId (),
                                         Seconds (1.0), &GenerateTraffic_interfering,
-                                        source_interfering, 2000, simTime*1000.0, MilliSeconds (1));
+                                        source_interfering, 2000, simTime*1000.0, MilliSeconds (1));*/
       }
-      else
-      {
+      /*else
+      {*/
           // Create a new ETSI GeoNetworking socket, thanks to the GeoNet::createGNPacketSocket() function, accepting as argument a pointer to the current node
           Ptr<Socket> sock;
           sock=GeoNet::createGNPacketSocket(c.Get(nodeID));
@@ -316,7 +316,7 @@ int main (int argc, char *argv[])
           std::srand(Simulator::Now().GetNanoSeconds ()*2); // Seed based on the simulation time to give each vehicle a different random seed
           double desync = ((double)std::rand()/RAND_MAX);
           bs_container->getCABasicService ()->startCamDissemination (desync);
-      }
+      //}
 
       return c.Get(nodeID);
     };
