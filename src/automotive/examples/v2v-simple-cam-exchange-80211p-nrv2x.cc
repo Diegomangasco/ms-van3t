@@ -122,22 +122,25 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
   writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
 }
 
-void txTrackerSetup(txTracker txTrackerObject, std::vector<std::string> wifiVehicles, double wifiBandwidth, double txPower, std::vector<std::string> nrVehicles, Ptr<NrHelper> nrHelper, NodeContainer nrNodes)
+void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wifiVehicles, double wifiBandwidth, double txPower_11p, std::vector<std::string> nrVehicles, Ptr<NrHelper> nrHelper, NodeContainer nrNodes, double txPower_nr)
 {
 
-  txTrackerObject.SetNrHelper (nrHelper);
+  txTrackerObject->SetNrHelper (nrHelper);
 }
 
 int main (int argc, char *argv[])
 {
   // std::string phyMode ("OfdmRate6MbpsBW10MHz");
   std::string phyMode ("OfdmRate3MbpsBW10MHz");
+  double bandwidth_11p = 10;
   int up = 0;
   bool realtime = false;
   bool verbose = false; // Set to true to get a lot of verbose output from the PHY model (leave this to false)
   int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
   double m_baseline_prr = 150.0; // PRR baseline value (default: 150 m)
   int txPower = 30.0; // Transmission power in dBm (default: 23 dBm)
+  int txPower_11p = txPower;
+  int txPower_nr = txPower;
   double sensitivity = -93.0;
   double snr_threshold = 4; // Default value
   xmlDocPtr rou_xml_file;
@@ -167,7 +170,9 @@ int main (int argc, char *argv[])
 
   bool sionna = false;
 
+  Ptr<txTracker> txTracker_ptr = NULL;
   txTracker txTrackerObject = txTracker();
+  txTracker_ptr = &txTrackerObject;
 
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
@@ -630,10 +635,9 @@ int main (int argc, char *argv[])
     bsc->cleanup();
   };
 
-  double wifiBandwidth;
-  std::vector<std::string> wifiVehicles;
-  std::vector<std::string> nrVehicles;
-  txTrackerSetup(txTrackerObject, wifiVehicles, wifiBandwidth, txPower, nrVehicles, nrHelper, nrNodes);
+  std::vector<std::string> wifiVehicles = {"veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10"};
+  std::vector<std::string> nrVehicles = {"veh11", "veh12", "veh13", "veh14", "veh15", "veh16", "veh17", "veh18", "veh19", "veh20"};
+  txTrackerSetup(txTracker_ptr, wifiVehicles, bandwidth_11p, txPower_11p, nrVehicles, nrHelper, nrNodes, txPower_nr);
 
   // Link ns-3 and SUMO
   sumoClient->SumoSetup (setupNewWifiNode, shutdownWifiNode);
