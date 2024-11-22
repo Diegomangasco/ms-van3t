@@ -5,16 +5,19 @@
 #ifndef NS3_TXTRACKER_H
 #define NS3_TXTRACKER_H
 
-#include "ns3/object.h"
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <variant>
+#include "ns3/object.h"
 #include "ns3/config.h"
 #include "ns3/nstime.h"
 #include "ns3/wifi-phy-state.h"
 #include "ns3/callback.h"
 #include "ns3/simulator.h"
+#include "ns3/nr-helper.h"
+#include "ns3/net-device.h"
+#include "ns3/ptr.h"
+#include "ns3/nr-ue-phy.h"
 
 // TODO add the numerology information (Bandwidth for 11p) (Bandwidth, RB numbers, subcarrier width (1RB = 12 suncarriers) for NR)
 // TODO add the nrHelper to get the spectrum tx information
@@ -32,14 +35,17 @@ class txTracker : public Object
 public:
 
   typedef struct txParameters11p{
+    uint8_t nodeID;
     // (maxBand, txPower)
     std::tuple<double, double> txBandsPower;
     bool isTransmitting;
   } txParameters11p;
 
   typedef struct txParametersNR {
-    // Key: RB index, Value: (minBand, maxBand, txPower)
-    std::unordered_map<uint8_t, std::tuple<double, double, double>> txPowerPerRB;
+    uint8_t nodeID;
+    // Value: (minBand, maxBand, txPower)
+    std::tuple<double, double, double> txBandsPower;
+    Ptr<Node> node;
     Time txDuration;
     bool isTransmitting;
   } txParametersNR;
@@ -52,10 +58,14 @@ public:
   txTracker ();
   ~txTracker();
 
-  static void insert11pNodes(std::vector<std::string> nodes, double bandWidth, double txPower);
-  static void insertNrNodes(std::vector<std::string> nodes);
+  void SetNrHelper(Ptr<NrHelper> helper);
+
+  static void insert11pNodes(std::vector<std::tuple<std::string, uint8_t>> nodes, double bandWidth, double txPower);
+  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<Node>>> nodes);
 
   void startTracking();
+
+  std::vector<std::tuple<std::string, double, double, double>> getTxArray();
 
 private:
 

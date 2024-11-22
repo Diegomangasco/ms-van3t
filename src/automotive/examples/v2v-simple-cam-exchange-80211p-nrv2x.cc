@@ -57,8 +57,9 @@
 #include "ns3/vehicle-visualizer-module.h"
 #include <unistd.h>
 #include "ns3/core-module.h"
-
 #include "ns3/csv-utils.h"
+
+#include "ns3/txTracker.h"
 
 using namespace ns3;
 
@@ -121,6 +122,12 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
   writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
 }
 
+void txTrackerSetup(txTracker txTrackerObject, std::vector<std::string> wifiVehicles, double wifiBandwidth, double txPower, std::vector<std::string> nrVehicles, Ptr<NrHelper> nrHelper, NodeContainer nrNodes)
+{
+
+  txTrackerObject.SetNrHelper (nrHelper);
+}
+
 int main (int argc, char *argv[])
 {
   // std::string phyMode ("OfdmRate6MbpsBW10MHz");
@@ -159,6 +166,8 @@ int main (int argc, char *argv[])
   uint8_t mcs = 14;
 
   bool sionna = false;
+
+  txTracker txTrackerObject = txTracker();
 
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
@@ -581,9 +590,6 @@ int main (int argc, char *argv[])
 
         netDevice = nrNodes.Get(nodeID)->GetDevice(0);
         Ptr<NrNetDevice> nrDevice = DynamicCast<NrNetDevice>(netDevice);
-        // TODO add the GetTxPowerSpectralDensity method in SignalInfo/NR/nr-spectrum-phy.h
-        // TODO add the GetTxPowerSpectralDensity method in SignalInfo/NR/nr-spectrum-phy.cc
-        Ptr<SpectrumValue> v = nrHelper->GetUePhy (netDevice, 0)->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
         // nrHelper->GetUePhy (netDevice, 0)->SetRiSinrThreshold1 (sinr);
       }
 
@@ -623,6 +629,11 @@ int main (int argc, char *argv[])
     Ptr<BSContainer> bsc = basicServices.get(intVehicleID);
     bsc->cleanup();
   };
+
+  double wifiBandwidth;
+  std::vector<std::string> wifiVehicles;
+  std::vector<std::string> nrVehicles;
+  txTrackerSetup(txTrackerObject, wifiVehicles, wifiBandwidth, txPower, nrVehicles, nrHelper, nrNodes);
 
   // Link ns-3 and SUMO
   sumoClient->SumoSetup (setupNewWifiNode, shutdownWifiNode);
