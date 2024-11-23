@@ -197,6 +197,7 @@ CMakeLists.txt
 !/src/automotive/model/SignalInfo/LTE/CMakeLists.txt
 !/src/automotive/model/SignalInfo/NR/CMakeLists.txt
 !/src/automotive/model/SignalInfo/WiFi/CMakeLists.txt
+!/src/sionna/CMakeLists.txt
 grpc/
 pyproject.toml
 setup.cfg
