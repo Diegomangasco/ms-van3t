@@ -397,6 +397,12 @@ NrSpectrumPhy::GetTxPowerSpectralDensity ()
   return m_txPsd;
 }
 
+NrSpectrumPhy::State
+NrSpectrumPhy::GetState ()
+{
+  return m_state;
+}
+
 void
 NrSpectrumPhy::StartRx (Ptr<SpectrumSignalParameters> params)
 {

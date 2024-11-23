@@ -8,8 +8,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "ns3/object.h"
-#include "ns3/config.h"
+#include "ns3/epc-helper.h"
 #include "ns3/nstime.h"
 #include "ns3/wifi-phy-state.h"
 #include "ns3/callback.h"
@@ -46,7 +45,6 @@ public:
     // Value: (minBand, maxBand, txPower)
     std::tuple<double, double, double> txBandsPower;
     Ptr<Node> node;
-    Time txDuration;
     bool isTransmitting;
   } txParametersNR;
 

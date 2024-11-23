@@ -341,17 +341,15 @@ public:
    * \return HARQ module of this spectrum phy
    */
   Ptr<NrHarqPhy> GetHarqPhyModule (void) const;
+
+  Ptr<SpectrumValue> GetTxPowerSpectralDensity ();
+
+  State GetState ();
+
   /**
    * \return NrInterference instance of this spectrum phy
    */
   Ptr<NrInterference> GetNrInterference (void) const;
-
-  /**
-   *
-   * @return the SpectrumValue for transmission
-   */
-  Ptr<SpectrumValue> GetTxPowerSpectralDensity ();
-
   /**
    * \brief Instruct the Spectrum Model of a incoming transmission.
    * \param rnti RNTI

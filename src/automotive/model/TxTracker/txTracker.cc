@@ -90,15 +90,74 @@ nrNodeState(std::string context, Time duration)
   NS_ASSERT_MSG (vehID != "", "Vehicle ID not found in the txMapNr");
   NS_ASSERT_MSG(nrHelper != nullptr, "NR Helper not set.");
 
-  m_txMap11p[vehID].isTransmitting = true;
-  m_txMapNr[vehID].txDuration = Simulator::Now() + duration;
-  Ptr<NetDevice> netDevice = m_txMapNr[node].node->GetDevice(0);
+  Ptr<NetDevice> netDevice = m_txMapNr[vehID].node->GetDevice(0);
 
   NS_ASSERT_MSG (netDevice != nullptr, "NetDevice is nullptr");
 
-  Ptr<SpectrumValue> spectrum = nrHelper->GetUePhy (netDevice, 0)->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
+  Ptr<NrUePhy> uePhy = nrHelper->GetUePhy (netDevice, 0);
 
-  // TODO manage the Spectrum value to get the txPower and bands
+  NrSpectrumPhy::State state = uePhy->GetSpectrumPhy ()->GetState();
+
+  if (state == NrSpectrumPhy::TX)
+    {
+      m_txMapNr[vehID].isTransmitting = true;
+    }
+  else
+    {
+      m_txMapNr[vehID].isTransmitting = false;
+      // If the channel is not in TX state we don't need to get bands and txPower
+      return;
+    }
+
+  // Hz
+  uint32_t bandwidth = uePhy->GetChannelBandwidth();
+
+  // TODO verify they are dBm/Hz
+  Ptr<SpectrumValue> spectrum = uePhy->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
+
+  Ptr<const SpectrumModel> spectrumModel = spectrum->GetSpectrumModel();
+  double rbBandwidth = bandwidth / spectrumModel->GetNumBands();
+
+  bool foundFirst = false;
+  bool foundLast = false;
+  double minBand;
+  double maxBand;
+  double txPower = 0.0;
+  for (size_t i = 0; i < spectrum->GetValuesN(); ++i)
+    {
+      double powerSpectralDensity = (*spectrum)[i];
+      if (powerSpectralDensity <= 0.0)
+        {
+          if(foundFirst && !foundLast)
+            {
+              maxBand = i * rbBandwidth;
+              foundLast = true;
+            }
+          continue;
+        }
+      else
+        {
+          if(!foundFirst)
+            {
+              minBand = i * rbBandwidth;
+              foundFirst = true;
+            }
+        }
+      txPower += powerSpectralDensity * rbBandwidth;
+      if (foundLast)
+        {
+          break;
+        }
+    }
+
+  if (!foundLast)
+    {
+      maxBand = spectrum->GetValuesN() * rbBandwidth;
+    }
+
+  double txPower_dBm = 10 * log10 (txPower) + 30;
+
+  m_txMapNr[vehID].txBandsPower = std::make_tuple (minBand, maxBand, txPower_dBm);
 }
 
 void
@@ -175,7 +234,6 @@ txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<Node>
           nodeID,
           std::tuple<double, double, double>{},
           node,
-          Time(0.0),
           false
       };
     }
