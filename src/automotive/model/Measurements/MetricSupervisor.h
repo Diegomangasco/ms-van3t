@@ -7,6 +7,9 @@
 #include "ns3/traci-client.h"
 #include "ns3/event-id.h"
 #include "ns3/wifi-phy-state.h"
+#include "ns3/nr-spectrum-phy.h"
+#include "ns3/nr-helper.h"
+#include "ns3/nr-ue-phy.h"
 
 namespace ns3 {
 
@@ -382,6 +385,9 @@ public:
    */
   void modifyPRRComputationTimeout(double prr_comp_timeout_sec) {m_pprcomp_timeout=prr_comp_timeout_sec;}
 
+  void SetNrHelper(Ptr<NrHelper> helper);
+
+  void setNrNodes(NodeContainer nodes);
 
   void startCheckCBR();
   /**

@@ -150,6 +150,20 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
   txTrackerObject->insertNrNodes (nrVehiclesList);
 }
 
+void takeTxNodes(Ptr<txTracker> txTracker)
+{
+  std::vector<std::tuple<std::basic_string<char>, double, double, double>> array = txTracker->getTxArray();
+  std::ofstream outFile("src/log.txt", std::ios::app);
+  for (auto it = array.begin(); it != array.end(); it++)
+    {
+      outFile << "Vehicle " << std::get<0>(*it) << " is transmitting from " << std::get<1>(*it) << " to " << std::get<2>(*it) << " MHz with a power of " << std::get<3>(*it) << " dBm" << std::endl;
+    }
+  outFile << "\n-----------------------------------\n" << std::endl;
+  outFile.close();
+
+  Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker);
+}
+
 int main (int argc, char *argv[])
 {
   // std::string phyMode ("OfdmRate6MbpsBW10MHz");
@@ -172,6 +186,7 @@ int main (int argc, char *argv[])
   // will pass them inside the NR module.
   double centralFrequencyBandSl = 5.89e9; // band n47  TDD //Here band is analogous to channel
   uint16_t bandwidthBandSl = 400;
+  // uint16_t bandwidthBandSl = 200;
   std::string tddPattern = "UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|";
   std::string slBitMap = "1|1|1|1|1|1|1|1|1|1";
   uint16_t numerologyBwpSl = 2;
@@ -574,6 +589,8 @@ int main (int argc, char *argv[])
 
   txTrackerSetup(txTracker_ptr, wifiVehicles, bandwidth_11p, txPower_11p, wifiNodes, nrVehicles, nrHelper, nrNodes, txPower_nr);
   txTracker_ptr->startTracking();
+
+  Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker_ptr);
 
   std::cout << "A transmission power of " << txPower << " dBm  will be used." << std::endl;
 

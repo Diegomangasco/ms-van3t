@@ -54,18 +54,12 @@ txTracker::getTxArray()
       if (n.second.isTransmitting)
         {
           std::tuple<std::string, double, double, double> tuple = std::make_tuple (
-              n.first, std::get<0>(n.second.txBandsPower), std::get<1>(n.second.txBandsPower), std::get<2>(n.second.txBandsPower)
+              n.first, std::get<0>(n.second.txBandsPower)/1e6, std::get<1>(n.second.txBandsPower)/1e6, std::get<2>(n.second.txBandsPower)
               );
           txArray.push_back (tuple);
         }
     }
   return txArray;
-}
-
-void
-cleanTxMapNR()
-{
-
 }
 
 void

@@ -36,9 +36,11 @@ namespace ns3 {
 NS_LOG_COMPONENT_DEFINE("MetricSupervisor");
 
 std::unordered_map<std::string, Time> currentBusyCBR;
+std::unordered_map<std::string, Ptr<Node>> nrNodes;
 std::unordered_map<std::string, std::pair<Time, WifiPhyState>> nodeLastState80211p;
-std::unordered_map<std::string, Time> nodeDurationStateNr;
+std::unordered_map<std::string, std::tuple<Time, NrSpectrumPhy::State, Time>> nodeLastStateNr;
 Time lastCBRCheck = Time(-1.0);
+Ptr<NrHelper> nrHelper;
 
 TypeId
 MetricSupervisor::GetTypeId ()
@@ -62,6 +64,12 @@ MetricSupervisor::~MetricSupervisor ()
         }
       eventit = eventList.erase(eventit);
     }
+}
+
+void
+MetricSupervisor::SetNrHelper(Ptr<NrHelper> helper)
+{
+  nrHelper = helper;
 }
 
 std::string
@@ -393,6 +401,17 @@ MetricSupervisor::computePRR(std::string buf)
 }
 
 void
+MetricSupervisor::setNrNodes(NodeContainer nodes)
+{
+  for (uint32_t i = 0; i < nodes.GetN(); i++)
+    {
+      Ptr<Node> node = nodes.Get(i);
+      std::string node_id = std::to_string (node->GetId());
+      nrNodes[node_id] = node;
+    }
+}
+
+void
 storeCBR80211p (std::string context, Time start, Time duration, WifiPhyState state)
 {
   // End and start are expressed in ns
@@ -437,15 +456,53 @@ storeCBRNr(std::string context, Time duration)
   std::size_t last = context.find ("/", first);
   std::string node = context.substr (first, last - first);
 
-  // How long the state will last?
-  nodeDurationStateNr[node] = Simulator::Now() + duration;
+  NS_ASSERT_MSG (nrHelper != nullptr, "NR helper not set.");
 
-  if (currentBusyCBR.find(node) == currentBusyCBR.end())
+  Ptr<NetDevice> netDevice = nrNodes[node]->GetDevice(0);
+
+  NS_ASSERT_MSG (netDevice != nullptr, "NetDevice is nullptr");
+
+  Ptr<NrUePhy> uePhy = nrHelper->GetUePhy (netDevice, 0);
+
+  NrSpectrumPhy::State state = uePhy->GetSpectrumPhy ()->GetState();
+
+  // How long the state will last?
+
+  if (state != NrSpectrumPhy::IDLE)
     {
-      currentBusyCBR[node] = duration;
-    } else
+      // Check if the tuple exists
+      if(nodeLastStateNr.find(node) == nodeLastStateNr.end())
+        {
+          nodeLastStateNr[node] = std::make_tuple (Simulator::Now(), NrSpectrumPhy::CCA_BUSY, duration);
+          currentBusyCBR[node] = duration;
+          return;
+        }
+
+      if (std::get<1>(nodeLastStateNr[node]) == NrSpectrumPhy::IDLE)
+        {
+          nodeLastStateNr[node] = std::make_tuple (Simulator::Now(), NrSpectrumPhy::CCA_BUSY, duration);
+          currentBusyCBR[node] += duration;
+          return;
+        }
+
+      if (Simulator::Now() >= std::get<0>(nodeLastStateNr[node]) + std::get<2>(nodeLastStateNr[node]))
+        {
+          currentBusyCBR[node] += duration;
+          nodeLastStateNr[node] = std::make_tuple (Simulator::Now(), NrSpectrumPhy::CCA_BUSY, duration);
+        }
+      else
+        {
+          if (Simulator::Now() + duration > std::get<0>(nodeLastStateNr[node]) + std::get<2>(nodeLastStateNr[node]))
+            {
+              Time newDuration = Simulator::Now() + duration - (std::get<0>(nodeLastStateNr[node]) + std::get<2>(nodeLastStateNr[node]));
+              currentBusyCBR[node] += newDuration;
+              nodeLastStateNr[node] = std::make_tuple (Simulator::Now(), NrSpectrumPhy::CCA_BUSY, duration);
+            }
+        }
+    }
+  else
     {
-      currentBusyCBR[node] += duration;
+      nodeLastStateNr[node] = std::make_tuple (Simulator::Now(), NrSpectrumPhy::IDLE, duration);
     }
 }
 
@@ -482,9 +539,9 @@ MetricSupervisor::checkCBR ()
           // NR duration refers to the future time the channel will be busy
           // We need to subtract the time that will be busy after this check
           // This time will be added in the next check (see below)
-          if (nodeDurationStateNr[node_id] > Simulator::Now())
+          if (std::get<0>(nodeLastStateNr[node_id]) + std::get<2>(nodeLastStateNr[node_id]) > Simulator::Now())
             {
-              Time nextToAdd = nodeDurationStateNr[node_id] - Simulator::Now();
+              Time nextToAdd = std::get<0>(nodeLastStateNr[node_id]) + std::get<2>(nodeLastStateNr[node_id]) - Simulator::Now();
               busyCbr -= nextToAdd;
               nextTimeToAddNr[node_id] = nextToAdd;
             }
@@ -509,7 +566,7 @@ MetricSupervisor::checkCBR ()
     nodeLastState80211p.clear();
   if(m_channel_technology == "Nr")
     {
-      nodeDurationStateNr.clear();
+      nodeLastStateNr.clear();
       for(auto it : nextTimeToAddNr)
         {
           currentBusyCBR[it.first] = it.second;
