@@ -122,12 +122,10 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
   writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
 }
 
-void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wifiVehicles, double wifiBandwidth, double txPower_11p, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, Ptr<NrHelper> nrHelper, NodeContainer nrNodes, double txPower_nr)
+void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wifiVehicles, double wifiBandwidth, double txPower_11p, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, NetDeviceContainer nrDevices, double txPower_nr)
 {
-
-  txTrackerObject->SetNrHelper (nrHelper);
   std::vector<std::tuple<std::string, uint8_t>> wifiVehiclesList;
-  std::vector<std::tuple<std::string, uint8_t, Ptr<Node>>> nrVehiclesList;
+  std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nrVehiclesList;
 
   uint8_t i = 0;
   for (auto v : wifiVehicles)
@@ -141,9 +139,9 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
   i = 0;
   for (auto v : nrVehicles)
     {
-      Ptr<Node> node = nrNodes.Get (i);
-      uint8_t id = node->GetId();
-      nrVehiclesList.push_back (std::make_tuple (v, id, node));
+      Ptr<NrUeNetDevice> netDevice = DynamicCast<NrUeNetDevice>(nrDevices.Get(i));
+      uint8_t id = nrDevices.Get (i)->GetNode()->GetId();
+      nrVehiclesList.push_back (std::make_tuple (v, id, netDevice));
       i++;
     }
 
@@ -587,7 +585,7 @@ int main (int argc, char *argv[])
   std::vector<std::string> wifiVehicles = {"veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10"};
   std::vector<std::string> nrVehicles = {"veh11", "veh12", "veh13", "veh14", "veh15", "veh16", "veh17", "veh18", "veh19", "veh20"};
 
-  txTrackerSetup(txTracker_ptr, wifiVehicles, bandwidth_11p, txPower_11p, wifiNodes, nrVehicles, nrHelper, nrNodes, txPower_nr);
+  txTrackerSetup(txTracker_ptr, wifiVehicles, bandwidth_11p, txPower_11p, wifiNodes, nrVehicles, allSlUesNetDeviceContainer, txPower_nr);
   txTracker_ptr->startTracking();
 
   Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker_ptr);

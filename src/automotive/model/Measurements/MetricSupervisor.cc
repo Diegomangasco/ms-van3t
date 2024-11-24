@@ -36,11 +36,11 @@ namespace ns3 {
 NS_LOG_COMPONENT_DEFINE("MetricSupervisor");
 
 std::unordered_map<std::string, Time> currentBusyCBR;
-std::unordered_map<std::string, Ptr<Node>> nrNodes;
+std::unordered_map<std::string, Ptr<NrUeNetDevice>> nrNodes;
 std::unordered_map<std::string, std::pair<Time, WifiPhyState>> nodeLastState80211p;
 std::unordered_map<std::string, std::tuple<Time, NrSpectrumPhy::State, Time>> nodeLastStateNr;
 Time lastCBRCheck = Time(-1.0);
-Ptr<NrHelper> nrHelper;
+// Ptr<NrHelper> nrHelper;
 
 TypeId
 MetricSupervisor::GetTypeId ()
@@ -66,11 +66,11 @@ MetricSupervisor::~MetricSupervisor ()
     }
 }
 
-void
+/*void
 MetricSupervisor::SetNrHelper(Ptr<NrHelper> helper)
 {
   nrHelper = helper;
-}
+}*/
 
 std::string
 MetricSupervisor::bufToString(uint8_t *buf, uint32_t bufsize)
@@ -401,13 +401,13 @@ MetricSupervisor::computePRR(std::string buf)
 }
 
 void
-MetricSupervisor::setNrNodes(NodeContainer nodes)
+MetricSupervisor::setNrNodes(NetDeviceContainer nrDevices)
 {
-  for (uint32_t i = 0; i < nodes.GetN(); i++)
+  for (uint32_t i = 0; i < nrDevices.GetN(); i++)
     {
-      Ptr<Node> node = nodes.Get(i);
-      std::string node_id = std::to_string (node->GetId());
-      nrNodes[node_id] = node;
+      Ptr<NrUeNetDevice> netDevice = DynamicCast<NrUeNetDevice>(nrDevices.Get(i));
+      uint8_t node_id = nrDevices.Get (i)->GetNode()->GetId();
+      nrNodes[std::to_string (node_id)] = netDevice;
     }
 }
 
@@ -456,13 +456,7 @@ storeCBRNr(std::string context, Time duration)
   std::size_t last = context.find ("/", first);
   std::string node = context.substr (first, last - first);
 
-  NS_ASSERT_MSG (nrHelper != nullptr, "NR helper not set.");
-
-  Ptr<NetDevice> netDevice = nrNodes[node]->GetDevice(0);
-
-  NS_ASSERT_MSG (netDevice != nullptr, "NetDevice is nullptr");
-
-  Ptr<NrUePhy> uePhy = nrHelper->GetUePhy (netDevice, 0);
+  Ptr<NrUePhy> uePhy = nrNodes[node]->GetPhy (0);
 
   NrSpectrumPhy::State state = uePhy->GetSpectrumPhy ()->GetState();
 
@@ -570,6 +564,7 @@ MetricSupervisor::checkCBR ()
       for(auto it : nextTimeToAddNr)
         {
           currentBusyCBR[it.first] = it.second;
+          nodeLastStateNr[it.first] = std::make_tuple (Simulator::Now(), NrSpectrumPhy::CCA_BUSY, it.second);
         }
     }
 
@@ -625,7 +620,7 @@ MetricSupervisor::startCheckCBR ()
       Config::Connect("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&storeCBR80211p));
     } else if (m_channel_technology == "Nr")
     {
-      Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/ChannelOccupied", MakeCallback(&storeCBRNr));
+      //Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/ChannelOccupied", MakeCallback(&storeCBRNr));
     }
   Simulator::Schedule (MilliSeconds(m_cbr_window), &MetricSupervisor::checkCBR, this);
   Simulator::Schedule (Seconds (m_simulation_time), &MetricSupervisor::logLastCBRs, this);

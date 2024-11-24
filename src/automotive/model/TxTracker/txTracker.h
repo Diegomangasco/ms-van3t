@@ -13,10 +13,13 @@
 #include "ns3/wifi-phy-state.h"
 #include "ns3/callback.h"
 #include "ns3/simulator.h"
-#include "ns3/nr-helper.h"
+#include "ns3/nr-spectrum-phy.h"
 #include "ns3/net-device.h"
 #include "ns3/ptr.h"
 #include "ns3/nr-ue-phy.h"
+#include "ns3/nr-ue-net-device.h"
+#include "ns3/node.h"
+#include "ns3/config.h"
 
 // TODO add the numerology information (Bandwidth for 11p) (Bandwidth, RB numbers, subcarrier width (1RB = 12 suncarriers) for NR)
 // TODO add the nrHelper to get the spectrum tx information
@@ -44,7 +47,7 @@ public:
     uint8_t nodeID;
     // Value: (minBand, maxBand, txPower)
     std::tuple<double, double, double> txBandsPower;
-    Ptr<Node> node;
+    Ptr<NrUeNetDevice> netDevice;
     bool isTransmitting;
   } txParametersNR;
 
@@ -56,10 +59,10 @@ public:
   txTracker ();
   ~txTracker();
 
-  void SetNrHelper(Ptr<NrHelper> helper);
+  // void SetNrHelper(Ptr<NrHelper> helper);
 
   static void insert11pNodes(std::vector<std::tuple<std::string, uint8_t>> nodes, double bandWidth, double txPower);
-  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<Node>>> nodes);
+  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
 
   void startTracking();
 

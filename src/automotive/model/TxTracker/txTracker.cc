@@ -24,7 +24,7 @@ NS_LOG_COMPONENT_DEFINE ("TxTracker");
 
 std::unordered_map<std::string, txTracker::txParameters11p> m_txMap11p;
 std::unordered_map<std::string, txTracker::txParametersNR> m_txMapNr;
-Ptr<NrHelper> nrHelper = nullptr;
+// Ptr<NrHelper> nrHelper = nullptr;
 
 TypeId
 txTracker::GetTypeId ()
@@ -82,13 +82,8 @@ nrNodeState(std::string context, Time duration)
     }
 
   NS_ASSERT_MSG (vehID != "", "Vehicle ID not found in the txMapNr");
-  NS_ASSERT_MSG(nrHelper != nullptr, "NR Helper not set.");
 
-  Ptr<NetDevice> netDevice = m_txMapNr[vehID].node->GetDevice(0);
-
-  NS_ASSERT_MSG (netDevice != nullptr, "NetDevice is nullptr");
-
-  Ptr<NrUePhy> uePhy = nrHelper->GetUePhy (netDevice, 0);
+  Ptr<NrUePhy> uePhy = m_txMapNr[vehID].netDevice->GetPhy (0);
 
   NrSpectrumPhy::State state = uePhy->GetSpectrumPhy ()->GetState();
 
@@ -187,11 +182,11 @@ wifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
 
 }
 
-void
+/*void
 txTracker::SetNrHelper(Ptr<NrHelper> helper)
 {
   nrHelper = helper;
-}
+}*/
 
 void
 txTracker::startTracking ()
@@ -216,18 +211,18 @@ txTracker::insert11pNodes (std::vector<std::tuple<std::string, uint8_t>> nodes, 
 }
 
 void
-txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<Node>>> nodes)
+txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes)
 {
   for (auto n : nodes)
     {
       std::string vehID = std::get<0>(n);
       uint8_t nodeID = std::get<1>(n);
-      Ptr<Node> node = std::get<2>(n);
-      NS_ASSERT_MSG (node != nullptr, "Node is nullptr");
+      Ptr<NrUeNetDevice> netDevice = std::get<2>(n);
+      NS_ASSERT_MSG (netDevice != nullptr, "Node is nullptr");
       m_txMapNr[vehID] = txParametersNR {
           nodeID,
           std::tuple<double, double, double>{},
-          node,
+          netDevice,
           false
       };
     }

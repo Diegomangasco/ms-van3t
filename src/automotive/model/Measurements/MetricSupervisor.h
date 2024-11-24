@@ -4,11 +4,13 @@
 #include <list>
 #include <unordered_map>
 #include <string>
+#include "ns3/epc-helper.h"
 #include "ns3/traci-client.h"
 #include "ns3/event-id.h"
 #include "ns3/wifi-phy-state.h"
 #include "ns3/nr-spectrum-phy.h"
-#include "ns3/nr-helper.h"
+#include "ns3/nr-ue-net-device.h"
+#include "ns3/net-device.h"
 #include "ns3/nr-ue-phy.h"
 
 namespace ns3 {
@@ -385,9 +387,9 @@ public:
    */
   void modifyPRRComputationTimeout(double prr_comp_timeout_sec) {m_pprcomp_timeout=prr_comp_timeout_sec;}
 
-  void SetNrHelper(Ptr<NrHelper> helper);
+  // void SetNrHelper(Ptr<NrHelper> helper);
 
-  void setNrNodes(NodeContainer nodes);
+  void setNrNodes(NetDeviceContainer nrDevices);
 
   void startCheckCBR();
   /**
