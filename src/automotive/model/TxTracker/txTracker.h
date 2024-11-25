@@ -36,6 +36,11 @@ class txTracker : public Object
 {
 public:
 
+  enum TxType {
+    WIFI,
+    NR
+  };
+
   typedef struct txParameters11p{
     uint8_t nodeID;
     // (maxBand, txPower)
@@ -59,14 +64,16 @@ public:
   txTracker ();
   ~txTracker();
 
-  // void SetNrHelper(Ptr<NrHelper> helper);
+  void SetTracker(Ptr<txTracker> txTracker);
 
   static void insert11pNodes(std::vector<std::tuple<std::string, uint8_t>> nodes, double bandWidth, double txPower);
   static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
 
   void startTracking();
 
-  std::vector<std::tuple<std::string, double, double, double>> getTxArray();
+  std::vector<std::tuple<std::string, TxType, double, double, double>> getTxArray();
+
+  void sendSionna(std::vector<std::tuple<std::string, double, double, double>> txArray);
 
 private:
 

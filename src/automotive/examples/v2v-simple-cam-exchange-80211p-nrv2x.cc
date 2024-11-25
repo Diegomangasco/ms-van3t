@@ -146,15 +146,16 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
     }
 
   txTrackerObject->insertNrNodes (nrVehiclesList);
+  txTrackerObject->SetTracker(txTrackerObject);
 }
 
 void takeTxNodes(Ptr<txTracker> txTracker)
 {
-  std::vector<std::tuple<std::basic_string<char>, double, double, double>> array = txTracker->getTxArray();
+  std::vector<std::tuple<std::basic_string<char>, txTracker::TxType, double, double, double>> array = txTracker->getTxArray();
   std::ofstream outFile("src/log.txt", std::ios::app);
   for (auto it = array.begin(); it != array.end(); it++)
     {
-      outFile << "Vehicle " << std::get<0>(*it) << " is transmitting from " << std::get<1>(*it) << " to " << std::get<2>(*it) << " MHz with a power of " << std::get<3>(*it) << " dBm" << std::endl;
+      outFile << "Vehicle " << std::get<0>(*it) << " is transmitting from " << std::get<2>(*it) << " to " << std::get<3>(*it) << " MHz with a power of " << std::get<4>(*it) << " dBm" << std::endl;
     }
   outFile << "\n-----------------------------------\n" << std::endl;
   outFile.close();
@@ -202,6 +203,9 @@ int main (int argc, char *argv[])
   bool enableChannelRandomness = false;
   uint16_t channelUpdatePeriod = 500; //ms
   uint8_t mcs = 14;
+
+  // (T2-T1+1) x (1/(2^numerology)) < reservation period
+  // (81-2+1) x (1/2^2) < 20
 
   bool sionna = false;
 

@@ -24,6 +24,7 @@ NS_LOG_COMPONENT_DEFINE ("TxTracker");
 
 std::unordered_map<std::string, txTracker::txParameters11p> m_txMap11p;
 std::unordered_map<std::string, txTracker::txParametersNR> m_txMapNr;
+Ptr<txTracker> tracker;
 // Ptr<NrHelper> nrHelper = nullptr;
 
 TypeId
@@ -34,16 +35,16 @@ txTracker::GetTypeId ()
 }
 
 // Tuple: <vehID, minBand, maxBand, txPower>
-std::vector<std::tuple<std::string, double, double, double>>
+std::vector<std::tuple<std::string, txTracker::TxType, double, double, double>>
 txTracker::getTxArray()
 {
-  std::vector<std::tuple<std::string, double, double, double>> txArray;
+  std::vector<std::tuple<std::string, TxType, double, double, double>> txArray;
   for (auto n : m_txMap11p)
     {
       if (n.second.isTransmitting)
         {
-          std::tuple<std::string, double, double, double> tuple = std::make_tuple (
-              n.first, 0.0, std::get<0>(n.second.txBandsPower), std::get<1>(n.second.txBandsPower)
+          std::tuple<std::string, TxType, double, double, double> tuple = std::make_tuple (
+              n.first, TxType::WIFI, 0.0, std::get<0>(n.second.txBandsPower), std::get<1>(n.second.txBandsPower)
               );
           txArray.push_back (tuple);
         }
@@ -53,8 +54,8 @@ txTracker::getTxArray()
     {
       if (n.second.isTransmitting)
         {
-          std::tuple<std::string, double, double, double> tuple = std::make_tuple (
-              n.first, std::get<0>(n.second.txBandsPower)/1e6, std::get<1>(n.second.txBandsPower)/1e6, std::get<2>(n.second.txBandsPower)
+          std::tuple<std::string, TxType, double, double, double> tuple = std::make_tuple (
+              n.first, TxType::NR, std::get<0>(n.second.txBandsPower)/1e6, std::get<1>(n.second.txBandsPower)/1e6, std::get<2>(n.second.txBandsPower)
               );
           txArray.push_back (tuple);
         }
@@ -87,15 +88,14 @@ nrNodeState(std::string context, Time duration)
 
   NrSpectrumPhy::State state = uePhy->GetSpectrumPhy ()->GetState();
 
-  if (state == NrSpectrumPhy::TX)
+  if (state != NrSpectrumPhy::TX)
     {
-      m_txMapNr[vehID].isTransmitting = true;
+      m_txMapNr[vehID].isTransmitting = false;
+      return;
     }
   else
     {
-      m_txMapNr[vehID].isTransmitting = false;
-      // If the channel is not in TX state we don't need to get bands and txPower
-      return;
+      m_txMapNr[vehID].isTransmitting = true;
     }
 
   // Hz
@@ -147,6 +147,36 @@ nrNodeState(std::string context, Time duration)
   double txPower_dBm = 10 * log10 (txPower) + 30;
 
   m_txMapNr[vehID].txBandsPower = std::make_tuple (minBand, maxBand, txPower_dBm);
+
+  std::vector<std::tuple<std::string, txTracker::TxType, double, double, double>> txArray;
+  txArray = tracker->getTxArray();
+  if (txArray.size() > 1)
+    {
+      std::vector<std::tuple<std::string, double, double, double>> sionnaArray;
+      std::unordered_map<txTracker::TxType, std::vector<std::tuple<std::string, double, double, double>>> txMap;
+      for (auto tx : txArray)
+        {
+          txTracker::TxType type = std::get<1>(tx);
+          if (txMap.find(type) == txMap.end())
+            {
+              std::tuple<std::string, double, double, double> tuple = std::make_tuple (std::get<0>(tx), std::get<2>(tx), std::get<3>(tx), std::get<4>(tx));
+              txMap[type] = {tuple};
+            }
+          else
+            {
+              std::tuple<std::string, double, double, double> tuple = std::make_tuple (std::get<0>(tx), std::get<2>(tx), std::get<3>(tx), std::get<4>(tx));
+              txMap[type].push_back (tuple);
+            }
+        }
+      if (!txMap[txTracker::WIFI].empty() && !txMap[txTracker::NR].empty())
+        {
+          sionnaArray = txMap[txTracker::WIFI];
+          sionnaArray.insert(sionnaArray.end(), txMap[txTracker::NR].begin(), txMap[txTracker::NR].end());
+          // Call Sionna for interference calculation
+          NS_ASSERT_MSG (tracker != nullptr, "Tracker is nullptr");
+          tracker->sendSionna (sionnaArray);
+        }
+    }
 }
 
 void
@@ -178,15 +208,44 @@ wifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
   else
     {
       m_txMap11p[vehID].isTransmitting = true;
+      std::vector<std::tuple<std::string, txTracker::TxType, double, double, double>> txArray;
+      txArray = tracker->getTxArray();
+      if (txArray.size() > 1)
+        {
+          std::vector<std::tuple<std::string, double, double, double>> sionnaArray;
+          std::unordered_map<txTracker::TxType, std::vector<std::tuple<std::string, double, double, double>>> txMap;
+          for (auto tx : txArray)
+            {
+              txTracker::TxType type = std::get<1>(tx);
+              if (txMap.find(type) == txMap.end())
+                {
+                  std::tuple<std::string, double, double, double> tuple = std::make_tuple (std::get<0>(tx), std::get<2>(tx), std::get<3>(tx), std::get<4>(tx));
+                  txMap[type] = {tuple};
+                }
+              else
+                {
+                  std::tuple<std::string, double, double, double> tuple = std::make_tuple (std::get<0>(tx), std::get<2>(tx), std::get<3>(tx), std::get<4>(tx));
+                  txMap[type].push_back (tuple);
+                }
+            }
+          if (!txMap[txTracker::WIFI].empty() && !txMap[txTracker::NR].empty())
+            {
+              sionnaArray = txMap[txTracker::WIFI];
+              sionnaArray.insert(sionnaArray.end(), txMap[txTracker::NR].begin(), txMap[txTracker::NR].end());
+              // Call Sionna for interference calculation
+              NS_ASSERT_MSG (tracker != nullptr, "Tracker is nullptr");
+              tracker->sendSionna (sionnaArray);
+            }
+        }
     }
 
 }
 
-/*void
-txTracker::SetNrHelper(Ptr<NrHelper> helper)
+void
+txTracker::SetTracker(Ptr<txTracker> txTracker)
 {
-  nrHelper = helper;
-}*/
+  tracker = txTracker;
+}
 
 void
 txTracker::startTracking ()
@@ -226,6 +285,12 @@ txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeN
           false
       };
     }
+}
+
+void
+txTracker::sendSionna(std::vector<std::tuple<std::string, double, double, double>> txArray)
+{
+
 }
 
 txTracker::txTracker () = default;
