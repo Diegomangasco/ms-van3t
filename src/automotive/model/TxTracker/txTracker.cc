@@ -290,7 +290,7 @@ txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeN
 void
 txTracker::sendSionna(std::vector<std::tuple<std::string, double, double, double>> txArray)
 {
-
+ // TODO send the txArray to SIONNA --> sionna_handler needs to have a method for this
 }
 
 txTracker::txTracker () = default;

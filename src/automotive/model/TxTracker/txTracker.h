@@ -20,9 +20,8 @@
 #include "ns3/nr-ue-net-device.h"
 #include "ns3/node.h"
 #include "ns3/config.h"
+#include "ns3/sionna_handler.h"
 
-// TODO add the numerology information (Bandwidth for 11p) (Bandwidth, RB numbers, subcarrier width (1RB = 12 suncarriers) for NR)
-// TODO add the nrHelper to get the spectrum tx information
 namespace ns3 {
 
 /**
