@@ -122,19 +122,20 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
   writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
 }
 
-void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wifiVehicles, double wifiBandwidth, double txPower_11p, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, NetDeviceContainer nrDevices, double txPower_nr)
+void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wifiVehicles, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, NetDeviceContainer nrDevices)
 {
-  std::vector<std::tuple<std::string, uint8_t>> wifiVehiclesList;
+  std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> wifiVehiclesList;
   std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nrVehiclesList;
 
   uint8_t i = 0;
   for (auto v : wifiVehicles)
     {
       uint8_t id = wifiNodes.Get(i)->GetId();
-      wifiVehiclesList.push_back (std::make_tuple (v, id));
+      Ptr<WifiNetDevice> netDevice = DynamicCast<WifiNetDevice>(wifiNodes.Get(id)->GetDevice(0));
+      wifiVehiclesList.push_back (std::make_tuple (v, id, netDevice));
       i++;
     }
-  txTrackerObject->insert11pNodes (wifiVehiclesList, wifiBandwidth, txPower_11p);
+  txTrackerObject->insert11pNodes (wifiVehiclesList);
 
   i = 0;
   for (auto v : nrVehicles)
@@ -144,9 +145,7 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
       nrVehiclesList.push_back (std::make_tuple (v, id, netDevice));
       i++;
     }
-
-  txTrackerObject->insertNrNodes (nrVehiclesList, txPower_nr);
-  txTrackerObject->SetTracker(txTrackerObject);
+  txTrackerObject->insertNrNodes (nrVehiclesList);
 }
 
 void takeTxNodes(Ptr<txTracker> txTracker)
@@ -589,7 +588,7 @@ int main (int argc, char *argv[])
   std::vector<std::string> wifiVehicles = {"veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10"};
   std::vector<std::string> nrVehicles = {"veh11", "veh12", "veh13", "veh14", "veh15", "veh16", "veh17", "veh18", "veh19", "veh20"};
 
-  txTrackerSetup(txTracker_ptr, wifiVehicles, bandwidth_11p, txPower_11p, wifiNodes, nrVehicles, allSlUesNetDeviceContainer, txPower_nr);
+  txTrackerSetup(txTracker_ptr, wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
   txTracker_ptr->startTracking();
 
   Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker_ptr);

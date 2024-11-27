@@ -11,6 +11,8 @@
 #include "ns3/epc-helper.h"
 #include "ns3/nstime.h"
 #include "ns3/wifi-phy-state.h"
+#include "ns3/wifi-phy.h"
+#include "ns3/wifi-net-device.h"
 #include "ns3/callback.h"
 #include "ns3/simulator.h"
 #include "ns3/nr-spectrum-phy.h"
@@ -43,17 +45,22 @@ public:
   typedef struct txParameters11p{
     uint8_t nodeID;
     // (maxBand, txPower)
-    std::tuple<double, double> txBandsPower;
+    // std::tuple<double, double> txBandsPower;
+    Ptr<WifiNetDevice> netDevice;
+    double bandwidth;
+    double txPower_W;
     bool isTransmitting;
   } txParameters11p;
 
   typedef struct txParametersNR {
     uint8_t nodeID;
     // Value: (minBand, maxBand, txPower)
-    std::vector<std::tuple<double, double, double>> txBandsPower;
+    // std::vector<std::tuple<double, double, double>> txBandsPower;
     Ptr<NrUeNetDevice> netDevice;
+    Ptr<SpectrumValue> txSpectrum;
+    double rbBandwidth;
     bool isTransmitting;
-    double txTotalPower;
+    // double txTotalPower;
   } txParametersNR;
 
   static TypeId GetTypeId(void);
@@ -66,12 +73,12 @@ public:
 
   void SetTracker(Ptr<txTracker> txTracker);
 
-  static void insert11pNodes(std::vector<std::tuple<std::string, uint8_t>> nodes, double bandWidth, double txPower);
-  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes, double txPower);
+  static void insert11pNodes(std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes);
+  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
 
   void startTracking();
 
-  std::unordered_map<std::string, std::vector<std::tuple<double, double, double>>> getTxMap();
+  static std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> getTxMap();
 
 private:
 
