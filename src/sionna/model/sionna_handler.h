@@ -6,37 +6,42 @@
 #include <netinet/in.h>
 #include <netinet/udp.h>
 #include <arpa/inet.h>
+#include <unordered_map>
 #include <unistd.h>
 #include <iostream>
 #include <map>
 #include <fstream>
 #include <string>
+#include "ns3/object.h"
 
-using namespace ns3;
+namespace ns3 {
+
+typedef struct SionnaPosition
+{
+  std::string x;
+  std::string y;
+  std::string z;
+  std::string angle;
+} SionnaPosition;
+
+void connect_now ();
+void checkConnection ();
+int sendString2sionna_UDP (const std::string &str);
+std::string getFromSionna_UDP ();
+void updateLocationSionna (std::string veh, std::string x, std::string y, std::string z,
+                           std::string angle);
+double getRxPowerFromSionna (Vector a_position, Vector b_position);
+double getPropagationDelayFromSionna (Vector a_position, Vector b_position);
+std::string getLOSStatusFromSionna (Vector a_position, Vector b_position);
+void LogProgress (int piece, std::string chunk);
 
 extern int sionna_port;
 extern int sionna_socket;
 extern struct sockaddr_in sionna_addr;
 extern struct in_addr sionna_destIPaddr;
 extern bool is_socket_created;
+extern std::unordered_map<std::string, SionnaPosition> vehiclePositions;
 
-struct Position {
-    std::string x;
-    std::string y;
-    std::string z;
-    std::string angle;
-};
-
-extern std::map<std::string, Position> vehiclePositions;
-
-void connect_now();
-void checkConnection();
-int sendString2sionna_UDP(const std::string& str);
-std::string getFromSionna_UDP();
-void updateLocationSionna(std::string veh, std::string x, std::string y, std::string z, std::string angle);
-double getRxPowerFromSionna(Vector a_position, Vector b_position);
-double getPropagationDelayFromSionna(Vector a_position, Vector b_position);
-std::string getLOSStatusFromSionna(Vector a_position, Vector b_position);
-void LogProgress(int piece, std::string chunk);
+}
 
 #endif /* SIONNA_HANDLER_H */

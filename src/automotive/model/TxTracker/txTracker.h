@@ -50,9 +50,10 @@ public:
   typedef struct txParametersNR {
     uint8_t nodeID;
     // Value: (minBand, maxBand, txPower)
-    std::tuple<double, double, double> txBandsPower;
+    std::vector<std::tuple<double, double, double>> txBandsPower;
     Ptr<NrUeNetDevice> netDevice;
     bool isTransmitting;
+    double txTotalPower;
   } txParametersNR;
 
   static TypeId GetTypeId(void);
@@ -66,13 +67,11 @@ public:
   void SetTracker(Ptr<txTracker> txTracker);
 
   static void insert11pNodes(std::vector<std::tuple<std::string, uint8_t>> nodes, double bandWidth, double txPower);
-  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
+  static void insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes, double txPower);
 
   void startTracking();
 
-  std::vector<std::tuple<std::string, TxType, double, double, double>> getTxArray();
-
-  void sendSionna(std::vector<std::tuple<std::string, double, double, double>> txArray);
+  std::unordered_map<std::string, std::vector<std::tuple<double, double, double>>> getTxMap();
 
 private:
 

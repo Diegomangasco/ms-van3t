@@ -44,13 +44,13 @@ NS_LOG_COMPONENT_DEFINE ("PropagationLossModel");
 
 NS_OBJECT_ENSURE_REGISTERED (PropagationLossModel);
 
-TypeId 
+TypeId
 PropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::PropagationLossModel")
-    .SetParent<Object> ()
-    .SetGroupName ("Propagation")
-  ;
+                          .SetParent<Object> ()
+                          .SetGroupName ("Propagation")
+      ;
   return tid;
 }
 
@@ -115,18 +115,17 @@ PropagationLossModel::CalcRxPower (double txPowerDbm,
           // For csv logging
           std::string log_pl = std::to_string(power_ns3) + "," + std::to_string(power_sionna) + "," + los;
           LogProgress(2, log_pl);
-
         }
     }
 
   // 3 - Return value from Sionna instead of ns3 models
   double self = m_sionna ? power_sionna : power_ns3;
-  
+
   if (m_next != 0)
     {
       self = m_next->CalcRxPower (self, a, b);
     }
-  
+
   return self;
 }
 
@@ -146,22 +145,22 @@ PropagationLossModel::AssignStreams (int64_t stream)
 
 NS_OBJECT_ENSURE_REGISTERED (RandomPropagationLossModel);
 
-TypeId 
+TypeId
 RandomPropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::RandomPropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<RandomPropagationLossModel> ()
-    .AddAttribute ("Variable", "The random variable used to pick a loss every time CalcRxPower is invoked.",
-                   StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
-                   MakePointerAccessor (&RandomPropagationLossModel::m_variable),
-                   MakePointerChecker<RandomVariableStream> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<RandomPropagationLossModel> ()
+                          .AddAttribute ("Variable", "The random variable used to pick a loss every time CalcRxPower is invoked.",
+                                         StringValue ("ns3::ConstantRandomVariable[Constant=1.0]"),
+                                         MakePointerAccessor (&RandomPropagationLossModel::m_variable),
+                                         MakePointerChecker<RandomVariableStream> ())
+      ;
   return tid;
 }
 RandomPropagationLossModel::RandomPropagationLossModel ()
-  : PropagationLossModel ()
+    : PropagationLossModel ()
 {
 }
 
@@ -191,30 +190,30 @@ RandomPropagationLossModel::DoAssignStreams (int64_t stream)
 
 NS_OBJECT_ENSURE_REGISTERED (FriisPropagationLossModel);
 
-TypeId 
+TypeId
 FriisPropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::FriisPropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<FriisPropagationLossModel> ()
-    .AddAttribute ("Frequency", 
-                   "The carrier frequency (in Hz) at which propagation occurs  (default is 5.15 GHz).",
-                   DoubleValue (5.150e9),
-                   MakeDoubleAccessor (&FriisPropagationLossModel::SetFrequency,
-                                       &FriisPropagationLossModel::GetFrequency),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("SystemLoss", "The system loss",
-                   DoubleValue (1.0),
-                   MakeDoubleAccessor (&FriisPropagationLossModel::m_systemLoss),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("MinLoss", 
-                   "The minimum value (dB) of the total loss, used at short ranges. Note: ",
-                   DoubleValue (0.0),
-                   MakeDoubleAccessor (&FriisPropagationLossModel::SetMinLoss,
-                                       &FriisPropagationLossModel::GetMinLoss),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<FriisPropagationLossModel> ()
+                          .AddAttribute ("Frequency",
+                                         "The carrier frequency (in Hz) at which propagation occurs  (default is 5.15 GHz).",
+                                         DoubleValue (5.150e9),
+                                         MakeDoubleAccessor (&FriisPropagationLossModel::SetFrequency,
+                                                             &FriisPropagationLossModel::GetFrequency),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("SystemLoss", "The system loss",
+                                         DoubleValue (1.0),
+                                         MakeDoubleAccessor (&FriisPropagationLossModel::m_systemLoss),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("MinLoss",
+                                         "The minimum value (dB) of the total loss, used at short ranges. Note: ",
+                                         DoubleValue (0.0),
+                                         MakeDoubleAccessor (&FriisPropagationLossModel::SetMinLoss,
+                                                             &FriisPropagationLossModel::GetMinLoss),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 }
 
@@ -270,7 +269,7 @@ FriisPropagationLossModel::DbmFromW (double w) const
   return dbm;
 }
 
-double 
+double
 FriisPropagationLossModel::DoCalcRxPower (double txPowerDbm,
                                           Ptr<MobilityModel> a,
                                           Ptr<MobilityModel> b) const
@@ -293,7 +292,7 @@ FriisPropagationLossModel::DoCalcRxPower (double txPowerDbm,
    * L: system loss
    * lambda: wavelength (m)
    *
-   * Here, we ignore tx and rx gain and the input and output values 
+   * Here, we ignore tx and rx gain and the input and output values
    * are in dB or dBm:
    *
    *                           lambda^2
@@ -333,35 +332,35 @@ FriisPropagationLossModel::DoAssignStreams (int64_t stream)
 
 NS_OBJECT_ENSURE_REGISTERED (TwoRayGroundPropagationLossModel);
 
-TypeId 
+TypeId
 TwoRayGroundPropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::TwoRayGroundPropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<TwoRayGroundPropagationLossModel> ()
-    .AddAttribute ("Frequency", 
-                   "The carrier frequency (in Hz) at which propagation occurs  (default is 5.15 GHz).",
-                   DoubleValue (5.150e9),
-                   MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::SetFrequency,
-                                       &TwoRayGroundPropagationLossModel::GetFrequency),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("SystemLoss", "The system loss",
-                   DoubleValue (1.0),
-                   MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::m_systemLoss),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("MinDistance",
-                   "The distance under which the propagation model refuses to give results (m)",
-                   DoubleValue (0.5),
-                   MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::SetMinDistance,
-                                       &TwoRayGroundPropagationLossModel::GetMinDistance),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("HeightAboveZ",
-                   "The height of the antenna (m) above the node's Z coordinate",
-                   DoubleValue (0),
-                   MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::m_heightAboveZ),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<TwoRayGroundPropagationLossModel> ()
+                          .AddAttribute ("Frequency",
+                                         "The carrier frequency (in Hz) at which propagation occurs  (default is 5.15 GHz).",
+                                         DoubleValue (5.150e9),
+                                         MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::SetFrequency,
+                                                             &TwoRayGroundPropagationLossModel::GetFrequency),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("SystemLoss", "The system loss",
+                                         DoubleValue (1.0),
+                                         MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::m_systemLoss),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("MinDistance",
+                                         "The distance under which the propagation model refuses to give results (m)",
+                                         DoubleValue (0.5),
+                                         MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::SetMinDistance,
+                                                             &TwoRayGroundPropagationLossModel::GetMinDistance),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("HeightAboveZ",
+                                         "The height of the antenna (m) above the node's Z coordinate",
+                                         DoubleValue (0),
+                                         MakeDoubleAccessor (&TwoRayGroundPropagationLossModel::m_heightAboveZ),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 }
 
@@ -408,7 +407,7 @@ TwoRayGroundPropagationLossModel::GetFrequency (void) const
   return m_frequency;
 }
 
-double 
+double
 TwoRayGroundPropagationLossModel::DbmToW (double dbm) const
 {
   double mw = std::pow (10.0,dbm / 10.0);
@@ -422,7 +421,7 @@ TwoRayGroundPropagationLossModel::DbmFromW (double w) const
   return dbm;
 }
 
-double 
+double
 TwoRayGroundPropagationLossModel::DoCalcRxPower (double txPowerDbm,
                                                  Ptr<MobilityModel> a,
                                                  Ptr<MobilityModel> b) const
@@ -466,7 +465,7 @@ TwoRayGroundPropagationLossModel::DoCalcRxPower (double txPowerDbm,
 
   // Calculate a crossover distance, under which we use Friis
   /*
-   * 
+   *
    * dCross = (4 * pi * Ht * Hr) / lambda
    *
    */
@@ -511,25 +510,25 @@ TypeId
 LogDistancePropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::LogDistancePropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<LogDistancePropagationLossModel> ()
-    .AddAttribute ("Exponent",
-                   "The exponent of the Path Loss propagation model",
-                   DoubleValue (3.0),
-                   MakeDoubleAccessor (&LogDistancePropagationLossModel::m_exponent),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("ReferenceDistance",
-                   "The distance at which the reference loss is calculated (m)",
-                   DoubleValue (1.0),
-                   MakeDoubleAccessor (&LogDistancePropagationLossModel::m_referenceDistance),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("ReferenceLoss",
-                   "The reference loss at reference distance (dB). (Default is Friis at 1m with 5.15 GHz)",
-                   DoubleValue (46.6777),
-                   MakeDoubleAccessor (&LogDistancePropagationLossModel::m_referenceLoss),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<LogDistancePropagationLossModel> ()
+                          .AddAttribute ("Exponent",
+                                         "The exponent of the Path Loss propagation model",
+                                         DoubleValue (3.0),
+                                         MakeDoubleAccessor (&LogDistancePropagationLossModel::m_exponent),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("ReferenceDistance",
+                                         "The distance at which the reference loss is calculated (m)",
+                                         DoubleValue (1.0),
+                                         MakeDoubleAccessor (&LogDistancePropagationLossModel::m_referenceDistance),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("ReferenceLoss",
+                                         "The reference loss at reference distance (dB). (Default is Friis at 1m with 5.15 GHz)",
+                                         DoubleValue (46.6777),
+                                         MakeDoubleAccessor (&LogDistancePropagationLossModel::m_referenceLoss),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 
 }
@@ -601,45 +600,45 @@ TypeId
 ThreeLogDistancePropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::ThreeLogDistancePropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<ThreeLogDistancePropagationLossModel> ()
-    .AddAttribute ("Distance0",
-                   "Beginning of the first (near) distance field",
-                   DoubleValue (1.0),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_distance0),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("Distance1",
-                   "Beginning of the second (middle) distance field.",
-                   DoubleValue (200.0),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_distance1),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("Distance2",
-                   "Beginning of the third (far) distance field.",
-                   DoubleValue (500.0),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_distance2),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("Exponent0",
-                   "The exponent for the first field.",
-                   DoubleValue (1.9),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_exponent0),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("Exponent1",
-                   "The exponent for the second field.",
-                   DoubleValue (3.8),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_exponent1),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("Exponent2",
-                   "The exponent for the third field.",
-                   DoubleValue (3.8),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_exponent2),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("ReferenceLoss",
-                   "The reference loss at distance d0 (dB). (Default is Friis at 1m with 5.15 GHz)",
-                   DoubleValue (46.6777),
-                   MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_referenceLoss),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<ThreeLogDistancePropagationLossModel> ()
+                          .AddAttribute ("Distance0",
+                                         "Beginning of the first (near) distance field",
+                                         DoubleValue (1.0),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_distance0),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("Distance1",
+                                         "Beginning of the second (middle) distance field.",
+                                         DoubleValue (200.0),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_distance1),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("Distance2",
+                                         "Beginning of the third (far) distance field.",
+                                         DoubleValue (500.0),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_distance2),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("Exponent0",
+                                         "The exponent for the first field.",
+                                         DoubleValue (1.9),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_exponent0),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("Exponent1",
+                                         "The exponent for the second field.",
+                                         DoubleValue (3.8),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_exponent1),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("Exponent2",
+                                         "The exponent for the third field.",
+                                         DoubleValue (3.8),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_exponent2),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("ReferenceLoss",
+                                         "The reference loss at distance d0 (dB). (Default is Friis at 1m with 5.15 GHz)",
+                                         DoubleValue (46.6777),
+                                         MakeDoubleAccessor (&ThreeLogDistancePropagationLossModel::m_referenceLoss),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 
 }
@@ -648,7 +647,7 @@ ThreeLogDistancePropagationLossModel::ThreeLogDistancePropagationLossModel ()
 {
 }
 
-double 
+double
 ThreeLogDistancePropagationLossModel::DoCalcRxPower (double txPowerDbm,
                                                      Ptr<MobilityModel> a,
                                                      Ptr<MobilityModel> b) const
@@ -668,20 +667,20 @@ ThreeLogDistancePropagationLossModel::DoCalcRxPower (double txPowerDbm,
   else if (distance < m_distance1)
     {
       pathLossDb = m_referenceLoss
-        + 10 * m_exponent0 * std::log10 (distance / m_distance0);
+                   + 10 * m_exponent0 * std::log10 (distance / m_distance0);
     }
   else if (distance < m_distance2)
     {
       pathLossDb = m_referenceLoss
-        + 10 * m_exponent0 * std::log10 (m_distance1 / m_distance0)
-        + 10 * m_exponent1 * std::log10 (distance / m_distance1);
+                   + 10 * m_exponent0 * std::log10 (m_distance1 / m_distance0)
+                   + 10 * m_exponent1 * std::log10 (distance / m_distance1);
     }
   else
     {
       pathLossDb = m_referenceLoss
-        + 10 * m_exponent0 * std::log10 (m_distance1 / m_distance0)
-        + 10 * m_exponent1 * std::log10 (m_distance2 / m_distance1)
-        + 10 * m_exponent2 * std::log10 (distance / m_distance2);
+                   + 10 * m_exponent0 * std::log10 (m_distance1 / m_distance0)
+                   + 10 * m_exponent1 * std::log10 (m_distance2 / m_distance1)
+                   + 10 * m_exponent2 * std::log10 (distance / m_distance2);
     }
 
   NS_LOG_DEBUG ("ThreeLogDistance distance=" << distance << "m, " <<
@@ -704,44 +703,44 @@ TypeId
 NakagamiPropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::NakagamiPropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<NakagamiPropagationLossModel> ()
-    .AddAttribute ("Distance1",
-                   "Beginning of the second distance field. Default is 80m.",
-                   DoubleValue (80.0),
-                   MakeDoubleAccessor (&NakagamiPropagationLossModel::m_distance1),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("Distance2",
-                   "Beginning of the third distance field. Default is 200m.",
-                   DoubleValue (200.0),
-                   MakeDoubleAccessor (&NakagamiPropagationLossModel::m_distance2),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("m0",
-                   "m0 for distances smaller than Distance1. Default is 1.5.",
-                   DoubleValue (1.5),
-                   MakeDoubleAccessor (&NakagamiPropagationLossModel::m_m0),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("m1",
-                   "m1 for distances smaller than Distance2. Default is 0.75.",
-                   DoubleValue (0.75),
-                   MakeDoubleAccessor (&NakagamiPropagationLossModel::m_m1),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("m2",
-                   "m2 for distances greater than Distance2. Default is 0.75.",
-                   DoubleValue (0.75),
-                   MakeDoubleAccessor (&NakagamiPropagationLossModel::m_m2),
-                   MakeDoubleChecker<double> ())
-    .AddAttribute ("ErlangRv",
-                   "Access to the underlying ErlangRandomVariable",
-                   StringValue ("ns3::ErlangRandomVariable"),
-                   MakePointerAccessor (&NakagamiPropagationLossModel::m_erlangRandomVariable),
-                   MakePointerChecker<ErlangRandomVariable> ())
-    .AddAttribute ("GammaRv",
-                   "Access to the underlying GammaRandomVariable",
-                   StringValue ("ns3::GammaRandomVariable"),
-                   MakePointerAccessor (&NakagamiPropagationLossModel::m_gammaRandomVariable),
-                   MakePointerChecker<GammaRandomVariable> ());
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<NakagamiPropagationLossModel> ()
+                          .AddAttribute ("Distance1",
+                                         "Beginning of the second distance field. Default is 80m.",
+                                         DoubleValue (80.0),
+                                         MakeDoubleAccessor (&NakagamiPropagationLossModel::m_distance1),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("Distance2",
+                                         "Beginning of the third distance field. Default is 200m.",
+                                         DoubleValue (200.0),
+                                         MakeDoubleAccessor (&NakagamiPropagationLossModel::m_distance2),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("m0",
+                                         "m0 for distances smaller than Distance1. Default is 1.5.",
+                                         DoubleValue (1.5),
+                                         MakeDoubleAccessor (&NakagamiPropagationLossModel::m_m0),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("m1",
+                                         "m1 for distances smaller than Distance2. Default is 0.75.",
+                                         DoubleValue (0.75),
+                                         MakeDoubleAccessor (&NakagamiPropagationLossModel::m_m1),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("m2",
+                                         "m2 for distances greater than Distance2. Default is 0.75.",
+                                         DoubleValue (0.75),
+                                         MakeDoubleAccessor (&NakagamiPropagationLossModel::m_m2),
+                                         MakeDoubleChecker<double> ())
+                          .AddAttribute ("ErlangRv",
+                                         "Access to the underlying ErlangRandomVariable",
+                                         StringValue ("ns3::ErlangRandomVariable"),
+                                         MakePointerAccessor (&NakagamiPropagationLossModel::m_erlangRandomVariable),
+                                         MakePointerChecker<ErlangRandomVariable> ())
+                          .AddAttribute ("GammaRv",
+                                         "Access to the underlying GammaRandomVariable",
+                                         StringValue ("ns3::GammaRandomVariable"),
+                                         MakePointerAccessor (&NakagamiPropagationLossModel::m_gammaRandomVariable),
+                                         MakePointerChecker<GammaRandomVariable> ());
   ;
   return tid;
 
@@ -816,22 +815,22 @@ NakagamiPropagationLossModel::DoAssignStreams (int64_t stream)
 
 NS_OBJECT_ENSURE_REGISTERED (FixedRssLossModel);
 
-TypeId 
+TypeId
 FixedRssLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::FixedRssLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<FixedRssLossModel> ()
-    .AddAttribute ("Rss", "The fixed receiver Rss.",
-                   DoubleValue (-150.0),
-                   MakeDoubleAccessor (&FixedRssLossModel::m_rss),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<FixedRssLossModel> ()
+                          .AddAttribute ("Rss", "The fixed receiver Rss.",
+                                         DoubleValue (-150.0),
+                                         MakeDoubleAccessor (&FixedRssLossModel::m_rss),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 }
 FixedRssLossModel::FixedRssLossModel ()
-  : PropagationLossModel ()
+    : PropagationLossModel ()
 {
 }
 
@@ -864,23 +863,23 @@ FixedRssLossModel::DoAssignStreams (int64_t stream)
 
 NS_OBJECT_ENSURE_REGISTERED (MatrixPropagationLossModel);
 
-TypeId 
+TypeId
 MatrixPropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::MatrixPropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<MatrixPropagationLossModel> ()
-    .AddAttribute ("DefaultLoss", "The default value for propagation loss, dB.",
-                   DoubleValue (std::numeric_limits<double>::max ()),
-                   MakeDoubleAccessor (&MatrixPropagationLossModel::m_default),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<MatrixPropagationLossModel> ()
+                          .AddAttribute ("DefaultLoss", "The default value for propagation loss, dB.",
+                                         DoubleValue (std::numeric_limits<double>::max ()),
+                                         MakeDoubleAccessor (&MatrixPropagationLossModel::m_default),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 }
 
 MatrixPropagationLossModel::MatrixPropagationLossModel ()
-  : PropagationLossModel (), m_default (std::numeric_limits<double>::max ())
+    : PropagationLossModel (), m_default (std::numeric_limits<double>::max ())
 {
 }
 
@@ -888,7 +887,7 @@ MatrixPropagationLossModel::~MatrixPropagationLossModel ()
 {
 }
 
-void 
+void
 MatrixPropagationLossModel::SetDefaultLoss (double loss)
 {
   m_default = loss;
@@ -917,7 +916,7 @@ MatrixPropagationLossModel::SetLoss (Ptr<MobilityModel> ma, Ptr<MobilityModel> m
     }
 }
 
-double 
+double
 MatrixPropagationLossModel::DoCalcRxPower (double txPowerDbm,
                                            Ptr<MobilityModel> a,
                                            Ptr<MobilityModel> b) const
@@ -949,15 +948,15 @@ TypeId
 RangePropagationLossModel::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::RangePropagationLossModel")
-    .SetParent<PropagationLossModel> ()
-    .SetGroupName ("Propagation")
-    .AddConstructor<RangePropagationLossModel> ()
-    .AddAttribute ("MaxRange",
-                   "Maximum Transmission Range (meters)",
-                   DoubleValue (250),
-                   MakeDoubleAccessor (&RangePropagationLossModel::m_range),
-                   MakeDoubleChecker<double> ())
-  ;
+                          .SetParent<PropagationLossModel> ()
+                          .SetGroupName ("Propagation")
+                          .AddConstructor<RangePropagationLossModel> ()
+                          .AddAttribute ("MaxRange",
+                                         "Maximum Transmission Range (meters)",
+                                         DoubleValue (250),
+                                         MakeDoubleAccessor (&RangePropagationLossModel::m_range),
+                                         MakeDoubleChecker<double> ())
+      ;
   return tid;
 }
 

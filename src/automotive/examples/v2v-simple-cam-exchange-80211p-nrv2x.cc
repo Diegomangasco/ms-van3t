@@ -145,13 +145,13 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
       i++;
     }
 
-  txTrackerObject->insertNrNodes (nrVehiclesList);
+  txTrackerObject->insertNrNodes (nrVehiclesList, txPower_nr);
   txTrackerObject->SetTracker(txTrackerObject);
 }
 
 void takeTxNodes(Ptr<txTracker> txTracker)
 {
-  std::vector<std::tuple<std::basic_string<char>, txTracker::TxType, double, double, double>> array = txTracker->getTxArray();
+  /*std::vector<std::tuple<std::basic_string<char>, txTracker::TxType, double, double, double>> array = txTracker->getTxArray();
   std::ofstream outFile("src/log.txt", std::ios::app);
   for (auto it = array.begin(); it != array.end(); it++)
     {
@@ -160,7 +160,7 @@ void takeTxNodes(Ptr<txTracker> txTracker)
   outFile << "\n-----------------------------------\n" << std::endl;
   outFile.close();
 
-  Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker);
+  Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker);*/
 }
 
 int main (int argc, char *argv[])
