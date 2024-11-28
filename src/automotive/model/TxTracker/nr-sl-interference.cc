@@ -26,6 +26,8 @@
 #include <ns3/simulator.h>
 #include <ns3/log.h>
 
+#include "ns3/txTracker.h"
+
 
 namespace ns3 {
 
@@ -195,28 +197,40 @@ NrSlInterference::ConditionallyEvaluateChunk ()
         {
           NS_LOG_LOGIC (this << " signal = " << *(m_rxSignal[index]) << " allSignals = " << *m_allSignals << " noise = " << *m_noise);
 
-          // TODO get the txPower and bandwidth from txTracker
-          double wifiTxPower;
-          double wifiBandwidth;
-          double psd = wifiTxPower / wifiBandwidth;
+          double psd;
           Ptr<SpectrumValue> wifiSignal = Create<SpectrumValue>(m_allSignals->GetSpectrumModel());
-          // TODO get the rbNum and nrBandwidth from txTracker
-          double rbNum;
-          double nrBandwidth;
-          double rbBandwidth = nrBandwidth / rbNum;
-          uint8_t i = 1;
-          for (auto it = wifiSignal->ValuesBegin(); it != wifiSignal->ValuesEnd(); ++it)
+          if (wifiTxBandwidth != 0 && wifiTxPower != 0)
             {
-              if (i * rbBandwidth <= wifiBandwidth)
+              double wifiBandwidth_Hz = wifiTxBandwidth * 1e6;
+              double wifiPower_W = std::pow(10, (wifiTxPower - 30) / 10);
+              psd = wifiPower_W / wifiBandwidth_Hz;
+              uint8_t i = 1;
+              for (auto it = wifiSignal->ValuesBegin(); it != wifiSignal->ValuesEnd(); ++it)
+                {
+                  if (i * rbBandwidth <= wifiBandwidth_Hz)
+                    {
+                      *it = psd * rbBandwidth;
+                    }
+                  else
+                    {
+                      *it = 0;
+                    }
+                  i++;
+                }
+              wifiTxPower = 0.0;
+              wifiTxBandwidth = 0.0;
+              rbBandwidth = 0.0;
+              nrTxSpectrum = nullptr;
+            }
+          else
+            {
+              psd = 0;
+              for (auto it = wifiSignal->ValuesBegin(); it != wifiSignal->ValuesEnd(); ++it)
                 {
                   *it = psd;
                 }
-              else
-                {
-                  *it = 0;
-                }
-              i++;
             }
+
           SpectrumValue interf =  (*m_allSignals) - (*(m_rxSignal[index])) + (*m_noise) + (*wifiSignal) /* spectrum value of WiFi */;
 
           SpectrumValue sinr = (*(m_rxSignal[index])) / interf;
@@ -279,6 +293,5 @@ NrSlInterference::AddInterferenceChunkProcessor (Ptr<NrSlChunkProcessor> p)
 }
 
 } // namespace ns3
-
 
 

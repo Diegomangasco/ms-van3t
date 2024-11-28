@@ -22,24 +22,30 @@
 namespace ns3 {
 NS_LOG_COMPONENT_DEFINE ("TxTracker");
 
-std::unordered_map<std::string, txTracker::txParameters11p> m_txMap11p;
-std::unordered_map<std::string, txTracker::txParametersNR> m_txMapNr;
-Ptr<txTracker> tracker;
+std::unordered_map<std::string, txParameters11p> m_txMap11p;
+std::unordered_map<std::string, txParametersNR> m_txMapNr;
 bool isInterference = false;
 
-TypeId
-txTracker::GetTypeId ()
+double wifiTxPower = 0.0;
+double wifiTxBandwidth = 0.0;
+double rbBandwidth = 0.0;
+Ptr<SpectrumValue> nrTxSpectrum = nullptr;
+
+void
+SetWifiNrMetrics(std::unordered_map<std::string, std::tuple<double, double>> wifiTxMap, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> nrTxMap)
 {
-  static TypeId tid = TypeId ("ns3::TxTracker").SetParent<Object> ().AddConstructor<txTracker> ();
-  return tid;
+  wifiTxBandwidth = std::get<0>(wifiTxMap.begin()->second);
+  wifiTxPower = std::get<1>(wifiTxMap.begin()->second);
+  rbBandwidth = std::get<0>(nrTxMap.begin()->second);
+  nrTxSpectrum = std::get<1>(nrTxMap.begin()->second);
 }
 
 std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>>
-txTracker::getTxMap()
+GetTxMap()
 {
-  std::unordered_map<txTracker::TxType, int> txTypes;
-  txTypes[txTracker::TxType::WIFI] = 0;
-  txTypes[txTracker::TxType::NR] = 0;
+  std::unordered_map<TxType, int> txTypes;
+  txTypes[TxType::WIFI] = 0;
+  txTypes[TxType::NR] = 0;
 
   std::unordered_map<std::string, std::tuple<double, double>> txMap_11p;
   std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> txMap_nr;
@@ -48,7 +54,7 @@ txTracker::getTxMap()
     {
       if (n.second.isTransmitting)
         {
-          txTypes[txTracker::TxType::WIFI] += 1;
+          txTypes[TxType::WIFI] += 1;
           txMap_11p[n.first] = std::make_tuple (n.second.bandwidth, n.second.txPower_W);
         }
     }
@@ -57,12 +63,12 @@ txTracker::getTxMap()
     {
       if (n.second.isTransmitting)
         {
-          txTypes[txTracker::TxType::NR] += 1;
+          txTypes[TxType::NR] += 1;
           txMap_nr[n.first] = std::make_tuple (n.second.rbBandwidth, n.second.txSpectrum);
         }
     }
 
-  if (txTypes[txTracker::TxType::WIFI] != 0 && txTypes[txTracker::TxType::NR] != 0)
+  if (txTypes[TxType::WIFI] != 0 && txTypes[TxType::NR] != 0)
     {
       isInterference = true;
     }
@@ -73,7 +79,7 @@ txTracker::getTxMap()
 }
 
 void
-nrNodeState(std::string context, Time duration)
+NrNodeState(std::string context, Time duration)
 {
   // In this case Duration is the time the channel will be in a busy state (referred to the future)
   std::size_t first = context.find ("/NodeList/") + 10; // 10 is the length of "/NodeList/"
@@ -108,7 +114,7 @@ nrNodeState(std::string context, Time duration)
   m_txMapNr[vehID].txSpectrum = spectrum;
 
   std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> txMap;
-  txMap = txTracker::getTxMap();
+  txMap = GetTxMap();
   if (!isInterference)
     {
       // Don't call Sionna if the transmission regards only a single technology
@@ -116,13 +122,13 @@ nrNodeState(std::string context, Time duration)
     }
   else
     {
-      // TODO Call for the interference management
+      SetWifiNrMetrics(txMap.first, txMap.second);
       isInterference = false;
     }
 }
 
 void
-wifiNodeState (std::string context, Time start, Time duration, WifiPhyState state)
+WifiNodeState (std::string context, Time start, Time duration, WifiPhyState state)
 {
   // End and start are expressed in ns
   // In this case Duration is the time the channel was in the specific state (referred to the past)
@@ -150,7 +156,7 @@ wifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
     }
     m_txMap11p[vehID].isTransmitting = true;
     std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> txMap;
-    txMap = txTracker::getTxMap();
+    txMap = GetTxMap();
     if (!isInterference)
       {
         // Don't call Sionna if the transmission regards only a single technology
@@ -158,26 +164,20 @@ wifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
       }
     else
       {
-        // TODO Call for the interference management
+        SetWifiNrMetrics(txMap.first, txMap.second);
         isInterference = false;
       }
 }
 
 void
-txTracker::SetTracker(Ptr<txTracker> txTracker)
+StartTxTracking ()
 {
-  tracker = txTracker;
+  Config::Connect("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&WifiNodeState));
+  Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/ChannelOccupied", MakeCallback(&NrNodeState));
 }
 
 void
-txTracker::startTracking ()
-{
-  Config::Connect("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&wifiNodeState));
-  Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/ChannelOccupied", MakeCallback(&nrNodeState));
-}
-
-void
-txTracker::insert11pNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes)
+Insert11pNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes)
 {
   for (auto n : nodes)
     {
@@ -198,7 +198,7 @@ txTracker::insert11pNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<Wifi
 }
 
 void
-txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes)
+InsertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes)
 {
   for (auto n : nodes)
     {
@@ -208,18 +208,15 @@ txTracker::insertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeN
       NS_ASSERT_MSG (netDevice != nullptr, "Node is nullptr");
       Ptr<NrUePhy> uePhy = netDevice->GetPhy (0);
       uint32_t bandwidth = uePhy->GetChannelBandwidth();
-      double rbBandwidth = bandwidth / uePhy->GetRbNum();
+      double rbBand = bandwidth / uePhy->GetRbNum();
       m_txMapNr[vehID] = txParametersNR {
           nodeID,
           netDevice,
           Ptr<SpectrumValue> {},
-          rbBandwidth,
+          rbBand,
           false,
       };
     }
 }
 
-txTracker::txTracker () = default;
-
-txTracker::~txTracker () = default;
 }

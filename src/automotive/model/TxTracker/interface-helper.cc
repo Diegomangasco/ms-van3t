@@ -30,6 +30,8 @@
 #include "wifi-utils.h"
 #include "wifi-psdu.h"
 
+#include "ns3/txTracker.h"
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("InterferenceHelper");
@@ -389,10 +391,34 @@ InterferenceHelper::CalculateNoiseInterferenceW (Ptr<Event> event, NiChangesPerB
   auto niIt = m_niChangesPerBand.find (band);
   NS_ASSERT (niIt != m_niChangesPerBand.end ());
   auto it = niIt->second.find (event->GetStartTime ());
+  double nrInterference = 0.0;
+  if (nrTxSpectrum != nullptr && rbBandwidth != 0 && wifiTxBandwidth != 0)
+    {
+      uint8_t i = 1;
+      double wifiBandwidth_Hz = wifiTxBandwidth * 1e6;
+      for (auto it = nrTxSpectrum->ValuesBegin(); it != nrTxSpectrum->ValuesEnd(); ++it)
+        {
+          if (i * rbBandwidth <= wifiBandwidth_Hz)
+            {
+              double psd = *it;
+              double power_W = psd * rbBandwidth;
+              nrInterference += power_W;
+            }
+          i++;
+        }
+      if (nrInterference != 0)
+        {
+          int j = 0;
+        }
+      nrInterference /= (i - 1);
+      wifiTxPower = 0.0;
+      wifiTxBandwidth = 0.0;
+      rbBandwidth = 0.0;
+      nrTxSpectrum = nullptr;
+    }
   for (; it != niIt->second.end () && it->first < Simulator::Now (); ++it)
     {
-      // TODO Diego
-      noiseInterferenceW = it->second.GetPower () - event->GetRxPowerW (band) /* + power of the NR event*/;
+      noiseInterferenceW = it->second.GetPower () - event->GetRxPowerW (band) + nrInterference /* + power of the NR event*/;
     }
   it = niIt->second.find (event->GetStartTime ());
   NS_ASSERT (it != niIt->second.end ());

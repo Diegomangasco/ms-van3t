@@ -122,7 +122,7 @@ void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, S
   writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
 }
 
-void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wifiVehicles, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, NetDeviceContainer nrDevices)
+void txTrackerSetup(std::vector<std::string> wifiVehicles, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, NetDeviceContainer nrDevices)
 {
   std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> wifiVehiclesList;
   std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nrVehiclesList;
@@ -135,7 +135,7 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
       wifiVehiclesList.push_back (std::make_tuple (v, id, netDevice));
       i++;
     }
-  txTrackerObject->insert11pNodes (wifiVehiclesList);
+  Insert11pNodes (wifiVehiclesList);
 
   i = 0;
   for (auto v : nrVehicles)
@@ -145,10 +145,10 @@ void txTrackerSetup(Ptr<txTracker> txTrackerObject, std::vector<std::string> wif
       nrVehiclesList.push_back (std::make_tuple (v, id, netDevice));
       i++;
     }
-  txTrackerObject->insertNrNodes (nrVehiclesList);
+  InsertNrNodes (nrVehiclesList);
 }
 
-void takeTxNodes(Ptr<txTracker> txTracker)
+void takeTxNodes()
 {
   /*std::vector<std::tuple<std::basic_string<char>, txTracker::TxType, double, double, double>> array = txTracker->getTxArray();
   std::ofstream outFile("src/log.txt", std::ios::app);
@@ -207,10 +207,6 @@ int main (int argc, char *argv[])
   // (81-2+1) x (1/2^2) < 20
 
   bool sionna = false;
-
-  Ptr<txTracker> txTracker_ptr = NULL;
-  txTracker txTrackerObject = txTracker();
-  txTracker_ptr = &txTrackerObject;
 
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
@@ -588,10 +584,10 @@ int main (int argc, char *argv[])
   std::vector<std::string> wifiVehicles = {"veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10"};
   std::vector<std::string> nrVehicles = {"veh11", "veh12", "veh13", "veh14", "veh15", "veh16", "veh17", "veh18", "veh19", "veh20"};
 
-  txTrackerSetup(txTracker_ptr, wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
-  txTracker_ptr->startTracking();
+  txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
+  // StartTxTracking();
 
-  Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker_ptr);
+  Simulator::Schedule (Seconds(2), &takeTxNodes);
 
   std::cout << "A transmission power of " << txPower << " dBm  will be used." << std::endl;
 
