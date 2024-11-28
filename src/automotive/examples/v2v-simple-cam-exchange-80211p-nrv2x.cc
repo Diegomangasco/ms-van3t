@@ -585,7 +585,7 @@ int main (int argc, char *argv[])
   std::vector<std::string> nrVehicles = {"veh11", "veh12", "veh13", "veh14", "veh15", "veh16", "veh17", "veh18", "veh19", "veh20"};
 
   txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
-  // StartTxTracking();
+  StartTxTracking();
 
   Simulator::Schedule (Seconds(2), &takeTxNodes);
 
