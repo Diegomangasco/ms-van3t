@@ -24,7 +24,6 @@ NS_LOG_COMPONENT_DEFINE ("TxTracker");
 
 std::unordered_map<std::string, txParameters11p> m_txMap11p;
 std::unordered_map<std::string, txParametersNR> m_txMapNr;
-bool isInterference = false;
 
 double wifiTxPower = 0.0;
 double wifiTxBandwidth = 0.0;
@@ -32,50 +31,26 @@ double rbBandwidth = 0.0;
 Ptr<SpectrumValue> nrTxSpectrum = nullptr;
 
 void
-SetWifiNrMetrics(std::unordered_map<std::string, std::tuple<double, double>> wifiTxMap, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> nrTxMap)
+SetWifiNrMetrics(std::tuple<double, double> wifiParams, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> nrTxMap)
 {
-  wifiTxBandwidth = std::get<0>(wifiTxMap.begin()->second);
-  wifiTxPower = std::get<1>(wifiTxMap.begin()->second);
+  wifiTxBandwidth = std::get<0>(wifiParams) * 1e6;
+  wifiTxPower = std::get<1>(wifiParams);
   rbBandwidth = std::get<0>(nrTxMap.begin()->second);
-  nrTxSpectrum = std::get<1>(nrTxMap.begin()->second);
-}
-
-std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>>
-GetTxMap()
-{
-  std::unordered_map<TxType, int> txTypes;
-  txTypes[TxType::WIFI] = 0;
-  txTypes[TxType::NR] = 0;
-
-  std::unordered_map<std::string, std::tuple<double, double>> txMap_11p;
-  std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> txMap_nr;
-
-  for (auto n : m_txMap11p)
+  SpectrumValue spectrum = SpectrumValue((std::get<1>(nrTxMap.begin()->second))->GetSpectrumModel());
+  for (auto it = nrTxMap.begin(); it != nrTxMap.end(); ++it)
     {
-      if (n.second.isTransmitting)
+      uint8_t i = 0;
+      Ptr<SpectrumValue> spetrTmp = std::get<1>(it->second);
+      for (auto it2 = spetrTmp->ValuesBegin(); it2 != spetrTmp->ValuesEnd(); ++it2)
         {
-          txTypes[TxType::WIFI] += 1;
-          txMap_11p[n.first] = std::make_tuple (n.second.bandwidth, n.second.txPower_W);
+          if (*it2 != 0)
+            {
+              spectrum[i] += *it2;
+            }
+          i++;
         }
     }
-
-  for (auto n : m_txMapNr)
-    {
-      if (n.second.isTransmitting)
-        {
-          txTypes[TxType::NR] += 1;
-          txMap_nr[n.first] = std::make_tuple (n.second.rbBandwidth, n.second.txSpectrum);
-        }
-    }
-
-  if (txTypes[TxType::WIFI] != 0 && txTypes[TxType::NR] != 0)
-    {
-      isInterference = true;
-    }
-
-  std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> txMap;
-  txMap = std::make_pair (txMap_11p, txMap_nr);
-  return txMap;
+  nrTxSpectrum = Create<SpectrumValue>(spectrum);
 }
 
 void
@@ -100,30 +75,46 @@ NrNodeState(std::string context, Time duration)
   NS_ASSERT_MSG (vehID != "", "Vehicle ID not found in the txMapNr");
 
   Ptr<NrUePhy> uePhy = m_txMapNr[vehID].netDevice->GetPhy (0);
-
   NrSpectrumPhy::State state = uePhy->GetSpectrumPhy ()->GetState();
 
   if (state != NrSpectrumPhy::TX)
     {
-      m_txMapNr[vehID].isTransmitting = false;
       return;
     }
 
-  m_txMapNr[vehID].isTransmitting = true;
+  std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> txMapNr;
+  for (auto it = m_txMapNr.begin(); it != m_txMapNr.end(); ++it)
+    {
+      if (it->first != vehID)
+        {
+          Ptr<NrUePhy> nrPhy = it->second.netDevice->GetPhy(0);
+          NrSpectrumPhy::State current_state = nrPhy->GetSpectrumPhy ()->GetState();
+          if (current_state == NrSpectrumPhy::State::TX)
+            {
+              Ptr<SpectrumValue> spectrum = nrPhy->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
+              txMapNr[it->first] = std::make_tuple (it->second.rbBandwidth, spectrum);
+            }
+        }
+    }
   Ptr<SpectrumValue> spectrum = uePhy->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
-  m_txMapNr[vehID].txSpectrum = spectrum;
+  txMapNr[vehID] = std::make_tuple (m_txMapNr[vehID].rbBandwidth, spectrum);
 
-  std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> txMap;
-  txMap = GetTxMap();
-  if (!isInterference)
+  uint8_t wifiDevices = 0;
+  std::tuple<double, double> wifiParams;
+  for (auto n : m_txMap11p)
     {
-      // Don't call Sionna if the transmission regards only a single technology
-      return;
+      Ptr<WifiPhy> wifiPhy = n.second.netDevice->GetPhy();
+      WifiPhyState current_state = wifiPhy->GetState()->GetState();
+      if (current_state == WifiPhyState::TX)
+        {
+          wifiDevices += 1;
+          wifiParams = std::make_tuple (n.second.bandwidth, n.second.txPower_W);
+        }
     }
-  else
+  NS_ASSERT_MSG (wifiDevices <= 1, "Multiple WiFi nodes are transmitting with the same technology");
+  if (wifiDevices > 0)
     {
-      SetWifiNrMetrics(txMap.first, txMap.second);
-      isInterference = false;
+      SetWifiNrMetrics(wifiParams, txMapNr);
     }
 }
 
@@ -151,22 +142,32 @@ WifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
 
   if (state != WifiPhyState::TX)
     {
-      m_txMap11p[vehID].isTransmitting = false;
       return;
     }
-    m_txMap11p[vehID].isTransmitting = true;
-    std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> txMap;
-    txMap = GetTxMap();
-    if (!isInterference)
-      {
-        // Don't call Sionna if the transmission regards only a single technology
-        return;
-      }
-    else
-      {
-        SetWifiNrMetrics(txMap.first, txMap.second);
-        isInterference = false;
-      }
+
+  std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> txMapNr;
+  uint8_t nrDevices = 0;
+  for (auto it = m_txMapNr.begin(); it != m_txMapNr.end(); ++it)
+    {
+      if (it->first != vehID)
+        {
+          Ptr<NrUePhy> nrPhy = it->second.netDevice->GetPhy(0);
+          NrSpectrumPhy::State current_state = nrPhy->GetSpectrumPhy ()->GetState();
+          if (current_state == NrSpectrumPhy::State::TX)
+            {
+              nrDevices++;
+              Ptr<SpectrumValue> spectrum = nrPhy->GetSpectrumPhy ()->GetTxPowerSpectralDensity();
+              txMapNr[it->first] = std::make_tuple (it->second.rbBandwidth, spectrum);
+            }
+        }
+    }
+
+
+  std::tuple<double, double> wifiParams = std::make_tuple (m_txMap11p[vehID].bandwidth, m_txMap11p[vehID].txPower_W);
+  if (nrDevices > 0)
+    {
+      SetWifiNrMetrics(wifiParams, txMapNr);
+    }
 }
 
 void
@@ -174,6 +175,9 @@ StartTxTracking ()
 {
   Config::Connect("/NodeList/*/DeviceList/*/Phy/State/State", MakeCallback (&WifiNodeState));
   Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/ChannelOccupied", MakeCallback(&NrNodeState));
+  Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/TxDataTrace", MakeCallback(&NrNodeState));
+  Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/TxCtrlTrace", MakeCallback(&NrNodeState));
+  // Config::Connect("/NodeList/*/DeviceList/*/$ns3::NrUeNetDevice/ComponentCarrierMapUe/*/NrUePhy/NrSpectrumPhyList/*/RxDataTrace", MakeCallback(&NrNodeState));
 }
 
 void
@@ -192,7 +196,6 @@ Insert11pNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>
           netDevice,
           bandwidth,
           std::pow(10, (wifiPhy->GetTxPowerStart() - 30) / 10),
-          false
       };
     }
 }
@@ -212,9 +215,7 @@ InsertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>>
       m_txMapNr[vehID] = txParametersNR {
           nodeID,
           netDevice,
-          Ptr<SpectrumValue> {},
           rbBand,
-          false,
       };
     }
 }

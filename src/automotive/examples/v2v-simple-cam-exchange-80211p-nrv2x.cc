@@ -178,16 +178,17 @@ int main (int argc, char *argv[])
   double sensitivity = -93.0;
   double snr_threshold = 4; // Default value
   xmlDocPtr rou_xml_file;
-  double simTime = 100.0; // Total simulation time (default: 100 seconds)
+  double simTime = 400.0; // Total simulation time (default: 200 seconds)
 
   // NR parameters. We will take the input from the command line, and then we
   // will pass them inside the NR module.
   double centralFrequencyBandSl = 5.89e9; // band n47  TDD //Here band is analogous to channel
-  uint16_t bandwidthBandSl = 400;
-  // uint16_t bandwidthBandSl = 200;
+  // uint16_t bandwidthBandSl = 400;
+  uint16_t bandwidthBandSl = 100;
   std::string tddPattern = "UL|UL|UL|UL|UL|UL|UL|UL|UL|UL|";
   std::string slBitMap = "1|1|1|1|1|1|1|1|1|1";
   uint16_t numerologyBwpSl = 2;
+  // uint16_t numerologyBwpSl = 0;
   uint16_t slSensingWindow = 100; // T0 in ms
   uint16_t slSelectionWindow = 5; // T2min
   uint16_t slSubchannelSize = 10;
@@ -198,6 +199,7 @@ int main (int argc, char *argv[])
   bool enableSensing = false;
   uint16_t t1 = 2;
   uint16_t t2 = 81;
+  // uint16_t t2 = 21;
   int slThresPsschRsrp = -128;
   bool enableChannelRandomness = false;
   uint16_t channelUpdatePeriod = 500; //ms
@@ -210,7 +212,7 @@ int main (int argc, char *argv[])
 
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
-  std::string mob_trace = "cars.rou.xml";
+  std::string mob_trace = "cars_60.rou.xml";
   std::string sumo_config ="src/automotive/examples/sumo_files_v2v_map/map.sumo.cfg";
 
   // Read the command line options
@@ -581,8 +583,14 @@ int main (int argc, char *argv[])
   sumoClient->SetAttribute ("SumoWaitForSocket", TimeValue (Seconds (1.0)));
 
   uint8_t nodeCounter = 0;
-  std::vector<std::string> wifiVehicles = {"veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10"};
-  std::vector<std::string> nrVehicles = {"veh11", "veh12", "veh13", "veh14", "veh15", "veh16", "veh17", "veh18", "veh19", "veh20"};
+  std::vector<std::string> wifiVehicles = {
+      "veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10", "veh11", "veh12", "veh13", "veh14", "veh15",
+      "veh16", "veh17", "veh18", "veh19", "veh20", "veh21", "veh22", "veh23", "veh24", "veh25", "veh26", "veh27", "veh28", "veh29", "veh30"
+  };
+  std::vector<std::string> nrVehicles = {
+      "veh31", "veh32", "veh33", "veh34", "veh35", "veh36", "veh37", "veh38", "veh39", "veh40", "veh41", "veh42", "veh43", "veh44", "veh45",
+      "veh46", "veh47", "veh48", "veh49", "veh50", "veh51", "veh52", "veh53", "veh54", "veh55", "veh56", "veh57", "veh58", "veh59", "veh60"
+  };
 
   txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
   StartTxTracking();

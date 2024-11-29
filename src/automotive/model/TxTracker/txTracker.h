@@ -41,23 +41,15 @@ enum TxType {
 
 typedef struct txParameters11p{
   uint8_t nodeID;
-  // (maxBand, txPower)
-  // std::tuple<double, double> txBandsPower;
   Ptr<WifiNetDevice> netDevice;
   double bandwidth;
   double txPower_W;
-  bool isTransmitting;
 } txParameters11p;
 
 typedef struct txParametersNR {
   uint8_t nodeID;
-  // Value: (minBand, maxBand, txPower)
-  // std::vector<std::tuple<double, double, double>> txBandsPower;
   Ptr<NrUeNetDevice> netDevice;
-  Ptr<SpectrumValue> txSpectrum;
   double rbBandwidth;
-  bool isTransmitting;
-  // double txTotalPower;
 } txParametersNR;
 
 extern std::unordered_map<std::string, txParameters11p> m_txMap11p;
@@ -74,8 +66,6 @@ void Insert11pNodes(std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevi
 void InsertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
 
 void StartTxTracking();
-
-std::pair<std::unordered_map<std::string, std::tuple<double, double>>, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>>> GetTxMap();
 
 }
 

@@ -201,8 +201,8 @@ NrSlInterference::ConditionallyEvaluateChunk ()
           Ptr<SpectrumValue> wifiSignal = Create<SpectrumValue>(m_allSignals->GetSpectrumModel());
           if (wifiTxBandwidth != 0 && wifiTxPower != 0)
             {
-              double wifiBandwidth_Hz = wifiTxBandwidth * 1e6;
-              double wifiPower_W = std::pow(10, (wifiTxPower - 30) / 10);
+              double wifiBandwidth_Hz = wifiTxBandwidth;
+              double wifiPower_W = wifiTxPower;
               psd = wifiPower_W / wifiBandwidth_Hz;
               uint8_t i = 1;
               for (auto it = wifiSignal->ValuesBegin(); it != wifiSignal->ValuesEnd(); ++it)

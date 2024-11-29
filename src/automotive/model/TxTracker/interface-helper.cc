@@ -395,7 +395,7 @@ InterferenceHelper::CalculateNoiseInterferenceW (Ptr<Event> event, NiChangesPerB
   if (nrTxSpectrum != nullptr && rbBandwidth != 0 && wifiTxBandwidth != 0)
     {
       uint8_t i = 1;
-      double wifiBandwidth_Hz = wifiTxBandwidth * 1e6;
+      double wifiBandwidth_Hz = wifiTxBandwidth;
       for (auto it = nrTxSpectrum->ValuesBegin(); it != nrTxSpectrum->ValuesEnd(); ++it)
         {
           if (i * rbBandwidth <= wifiBandwidth_Hz)
@@ -405,10 +405,6 @@ InterferenceHelper::CalculateNoiseInterferenceW (Ptr<Event> event, NiChangesPerB
               nrInterference += power_W;
             }
           i++;
-        }
-      if (nrInterference != 0)
-        {
-          int j = 0;
         }
       nrInterference /= (i - 1);
       wifiTxPower = 0.0;
