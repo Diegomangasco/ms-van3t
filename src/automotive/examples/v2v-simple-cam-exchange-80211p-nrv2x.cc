@@ -27,6 +27,7 @@
 #include "ns3/log.h"
 #include "ns3/command-line.h"
 #include "ns3/yans-wifi-helper.h"
+#include "ns3/spectrum-wifi-helper.h"
 #include "ns3/position-allocator.h"
 #include "ns3/mobility-helper.h"
 #include <iostream>
@@ -172,13 +173,13 @@ int main (int argc, char *argv[])
   bool verbose = false; // Set to true to get a lot of verbose output from the PHY model (leave this to false)
   int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
   double m_baseline_prr = 150.0; // PRR baseline value (default: 150 m)
-  int txPower = 30.0; // Transmission power in dBm (default: 23 dBm)
+  int txPower = 24.0; // Transmission power in dBm (default: 23 dBm)
   int txPower_11p = txPower;
   int txPower_nr = txPower;
   double sensitivity = -93.0;
   double snr_threshold = 4; // Default value
   xmlDocPtr rou_xml_file;
-  double simTime = 400.0; // Total simulation time (default: 200 seconds)
+  double simTime = 200.0; // Total simulation time (default: 200 seconds)
 
   // NR parameters. We will take the input from the command line, and then we
   // will pass them inside the NR module.
@@ -213,7 +214,7 @@ int main (int argc, char *argv[])
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
   std::string mob_trace = "cars_60.rou.xml";
-  std::string sumo_config ="src/automotive/examples/sumo_files_v2v_map/map.sumo.cfg";
+  std::string sumo_config ="src/automotive/examples/sumo_files_v2v_map/map.sumo_60.cfg";
 
   // Read the command line options
   CommandLine cmd (__FILE__);
@@ -292,48 +293,9 @@ int main (int argc, char *argv[])
   metSup_nr->setTraCIClient(sumoClient);
   // metSup_nr->enablePRRVerboseOnStdout ();
 
-  // Create numberOfNodes nodes
-  NodeContainer wifiNodes;
-  wifiNodes.Create (numberOfNodes_11p);
+  // Ptr<MultiModelSpectrumChannel> spectrumChannel = nullptr;
 
-  YansWifiPhyHelper wifiPhy;
-  wifiPhy.Set ("TxPowerStart", DoubleValue (txPower));
-  wifiPhy.Set ("TxPowerEnd", DoubleValue (txPower));
-  wifiPhy.SetPreambleDetectionModel ("ns3::ThresholdPreambleDetectionModel",
-                                     "MinimumRssi", DoubleValue (sensitivity),
-                                      "Threshold", DoubleValue (snr_threshold));
-  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
-  Ptr<YansWifiChannel> channel = wifiChannel.Create ();
-  wifiPhy.SetChannel (channel);
-  // ns-3 supports generating a pcap trace, to be later analyzed in Wireshark
-  wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11);
-
-  // We need a QosWaveMac, as we need to enable QoS and EDCA
-  QosWaveMacHelper wifi80211pMac = QosWaveMacHelper::Default ();
-  Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
-  if (verbose)
-    {
-      wifi80211p.EnableLogComponents ();      // Turn on all Wifi 802.11p logging, only if verbose is true
-    }
-
-  // Supported "phyMode"s:
-  // OfdmRate3MbpsBW10MHz, OfdmRate6MbpsBW10MHz, OfdmRate9MbpsBW10MHz, OfdmRate12MbpsBW10MHz, OfdmRate18MbpsBW10MHz, OfdmRate24MbpsBW10MHz, OfdmRate27MbpsBW10MHz
-  wifi80211p.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
-                                      "DataMode",StringValue (phyMode),
-                                      "ControlMode",StringValue (phyMode),
-                                      "NonUnicastMode",StringValue (phyMode));
-  NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, wifiNodes);
-
-  // Enable saving to Wireshark PCAP traces
-  // wifiPhy.EnablePcap ("v2v-80211p-student-application", devices);
-
-  // Set up the link between SUMO and ns-3, to make each node "mobile" (i.e., linking each ns-3 node to each moving vehicle in ns-3,
-  // which corresponds to installing the network stack to each SUMO vehicle)
   MobilityHelper mobility;
-  mobility.Install (wifiNodes);
-
-  PacketSocketHelper packetSocket;
-  packetSocket.Install(wifiNodes);
 
   Time slBearersActivationTime = Seconds (2.0);
 
@@ -383,6 +345,9 @@ int main (int argc, char *argv[])
   nrHelper->InitializeOperationBand (&bandSl);
   allBwps = CcBwpCreator::GetAllBwps ({bandSl});
 
+  // IMPORTANT: Get the SpectrumChannel for NR-V2X, to be used as SpectrumChannel for WiFi 80211.p
+  // spectrumChannel = DynamicCast<MultiModelSpectrumChannel>(bandSl.GetBwpAt (0, 0)->m_channel);
+
   nrHelper->SetUeAntennaAttribute ("NumRows", UintegerValue (1));  //following parameter has no impact at the moment because:
   nrHelper->SetUeAntennaAttribute ("NumColumns", UintegerValue (2));
   nrHelper->SetUeAntennaAttribute ("AntennaElement", PointerValue (CreateObject<IsotropicAntennaModel> ()));
@@ -390,6 +355,8 @@ int main (int argc, char *argv[])
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (txPower));
   nrHelper->SetUePhyAttribute ("RiSinrThreshold1", DoubleValue (snr_threshold));
   nrHelper->SetUePhyAttribute ("RiSinrThreshold2", DoubleValue (snr_threshold));
+
+  // nrHelper->SetUeAntennaAttribute ();
 
   nrHelper->SetUeMacAttribute ("EnableSensing", BooleanValue (enableSensing));
   nrHelper->SetUeMacAttribute ("T1", UintegerValue (static_cast<uint8_t> (t1)));
@@ -570,6 +537,56 @@ int main (int argc, char *argv[])
   //Set Sidelink bearers
   nrSlHelper->ActivateNrSlBearer (slBearersActivationTime, allSlUesNetDeviceContainer, tft);
 
+  // Create numberOfNodes nodes
+  NodeContainer wifiNodes;
+  wifiNodes.Create (numberOfNodes_11p);
+
+  YansWifiPhyHelper wifiPhy;
+  wifiPhy.Set ("TxPowerStart", DoubleValue (txPower));
+  wifiPhy.Set ("TxPowerEnd", DoubleValue (txPower));
+  wifiPhy.SetPreambleDetectionModel ("ns3::ThresholdPreambleDetectionModel",
+                                     "MinimumRssi", DoubleValue (sensitivity),
+                                      "Threshold", DoubleValue (snr_threshold));
+  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
+  Ptr<YansWifiChannel> channel = wifiChannel.Create ();
+
+  /*SpectrumWifiPhyHelper spectrumWiFiPhy = SpectrumWifiPhyHelper();
+  spectrumWiFiPhy.Set ("TxPowerStart", DoubleValue (txPower));
+  spectrumWiFiPhy.Set ("TxPowerEnd", DoubleValue (txPower));
+  spectrumWiFiPhy.SetPreambleDetectionModel ("ns3::ThresholdPreambleDetectionModel",
+                                            "MinimumRssi", DoubleValue (sensitivity),
+                                            "Threshold", DoubleValue (snr_threshold));
+  spectrumWiFiPhy.SetChannel (spectrumChannel);*/
+
+  // ns-3 supports generating a pcap trace, to be later analyzed in Wireshark
+  wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11);
+
+  // We need a QosWaveMac, as we need to enable QoS and EDCA
+  QosWaveMacHelper wifi80211pMac = QosWaveMacHelper::Default ();
+  Wifi80211pHelper wifi80211p = Wifi80211pHelper::Default ();
+  if (verbose)
+    {
+      wifi80211p.EnableLogComponents ();      // Turn on all Wifi 802.11p logging, only if verbose is true
+    }
+
+  // Supported "phyMode"s:
+  // OfdmRate3MbpsBW10MHz, OfdmRate6MbpsBW10MHz, OfdmRate9MbpsBW10MHz, OfdmRate12MbpsBW10MHz, OfdmRate18MbpsBW10MHz, OfdmRate24MbpsBW10MHz, OfdmRate27MbpsBW10MHz
+  wifi80211p.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+                                      "DataMode",StringValue (phyMode),
+                                      "ControlMode",StringValue (phyMode),
+                                      "NonUnicastMode",StringValue (phyMode));
+  NetDeviceContainer devices = wifi80211p.Install (wifiPhy, wifi80211pMac, wifiNodes);
+
+  // Enable saving to Wireshark PCAP traces
+  // wifiPhy.EnablePcap ("v2v-80211p-student-application", devices);
+
+  // Set up the link between SUMO and ns-3, to make each node "mobile" (i.e., linking each ns-3 node to each moving vehicle in ns-3,
+  // which corresponds to installing the network stack to each SUMO vehicle)
+  mobility.Install (wifiNodes);
+
+  PacketSocketHelper packetSocket;
+  packetSocket.Install(wifiNodes);
+
   sumoClient->SetAttribute ("SumoConfigPath", StringValue (sumo_config));
   sumoClient->SetAttribute ("SumoBinaryPath", StringValue (""));    // use system installation of sumo
   sumoClient->SetAttribute ("SynchInterval", TimeValue (Seconds (0.01)));
@@ -583,17 +600,25 @@ int main (int argc, char *argv[])
   sumoClient->SetAttribute ("SumoWaitForSocket", TimeValue (Seconds (1.0)));
 
   uint8_t nodeCounter = 0;
-  std::vector<std::string> wifiVehicles = {
-      "veh1", "veh2", "veh3", "veh4", "veh5", "veh6", "veh7", "veh8", "veh9", "veh10", "veh11", "veh12", "veh13", "veh14", "veh15",
-      "veh16", "veh17", "veh18", "veh19", "veh20", "veh21", "veh22", "veh23", "veh24", "veh25", "veh26", "veh27", "veh28", "veh29", "veh30"
-  };
-  std::vector<std::string> nrVehicles = {
-      "veh31", "veh32", "veh33", "veh34", "veh35", "veh36", "veh37", "veh38", "veh39", "veh40", "veh41", "veh42", "veh43", "veh44", "veh45",
-      "veh46", "veh47", "veh48", "veh49", "veh50", "veh51", "veh52", "veh53", "veh54", "veh55", "veh56", "veh57", "veh58", "veh59", "veh60"
-  };
+  std::vector<std::string> wifiVehicles;
+  std::vector<std::string> nrVehicles;
+  for (uint8_t i = 0; i < numberOfNodes_11p + numberOfNodes_nr; i++)
+    {
+      if (i % 2 == 0)
+        {
+          wifiVehicles.push_back ("veh" + std::to_string (i+1));
+        }
+      else
+        {
+          nrVehicles.push_back("veh" + std::to_string (i + 1));
+        }
+    }
 
   txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
   StartTxTracking();
+
+  uint8_t node11pCounter = 0;
+  uint8_t nodeNrCounter = 0;
 
   Simulator::Schedule (Seconds(2), &takeTxNodes);
 
@@ -605,16 +630,19 @@ int main (int argc, char *argv[])
   {
     bool wifi;
     unsigned long vehID = std::stol(vehicleID.substr (3));
-    unsigned long nodeID = vehID - 1;
+    unsigned long nodeID;
 
     if (std::find(wifiVehicles.begin(), wifiVehicles.end(), vehicleID) != wifiVehicles.end())
       {
         wifi = true;
+        nodeID = node11pCounter;
+        node11pCounter++;
       }
     else
       {
         wifi = false;
-        nodeID -= numberOfNodes_11p;
+        nodeID = nodeNrCounter;
+        nodeNrCounter++;
       }
 
       Ptr<NetDevice> netDevice;

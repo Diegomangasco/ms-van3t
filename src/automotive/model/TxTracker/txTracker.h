@@ -61,6 +61,7 @@ extern double wifiTxBandwidth;
 
 extern double rbBandwidth;
 extern Ptr<SpectrumValue> nrTxSpectrum;
+extern bool interference;
 
 void Insert11pNodes(std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes);
 void InsertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);

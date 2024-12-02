@@ -29,6 +29,7 @@ double wifiTxPower = 0.0;
 double wifiTxBandwidth = 0.0;
 double rbBandwidth = 0.0;
 Ptr<SpectrumValue> nrTxSpectrum = nullptr;
+bool interference = false;
 
 void
 SetWifiNrMetrics(std::tuple<double, double> wifiParams, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> nrTxMap)
@@ -51,6 +52,7 @@ SetWifiNrMetrics(std::tuple<double, double> wifiParams, std::unordered_map<std::
         }
     }
   nrTxSpectrum = Create<SpectrumValue>(spectrum);
+  interference = true;
 }
 
 void
@@ -79,6 +81,7 @@ NrNodeState(std::string context, Time duration)
 
   if (state != NrSpectrumPhy::TX)
     {
+      interference = false;
       return;
     }
 
@@ -109,12 +112,16 @@ NrNodeState(std::string context, Time duration)
         {
           wifiDevices += 1;
           wifiParams = std::make_tuple (n.second.bandwidth, n.second.txPower_W);
+          break;
         }
     }
-  NS_ASSERT_MSG (wifiDevices <= 1, "Multiple WiFi nodes are transmitting with the same technology");
   if (wifiDevices > 0)
     {
       SetWifiNrMetrics(wifiParams, txMapNr);
+    }
+  else
+    {
+      interference = false;
     }
 }
 
@@ -142,6 +149,7 @@ WifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
 
   if (state != WifiPhyState::TX)
     {
+      interference = false;
       return;
     }
 
@@ -167,6 +175,10 @@ WifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
   if (nrDevices > 0)
     {
       SetWifiNrMetrics(wifiParams, txMapNr);
+    }
+  else
+    {
+      interference = false;
     }
 }
 
