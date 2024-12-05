@@ -25,34 +25,11 @@ NS_LOG_COMPONENT_DEFINE ("TxTracker");
 std::unordered_map<std::string, txParameters11p> m_txMap11p;
 std::unordered_map<std::string, txParametersNR> m_txMapNr;
 
-double wifiTxPower = 0.0;
-double wifiTxBandwidth = 0.0;
-double rbBandwidth = 0.0;
-Ptr<SpectrumValue> nrTxSpectrum = nullptr;
-bool interference = false;
 
 void
 SetWifiNrMetrics(std::tuple<double, double> wifiParams, std::unordered_map<std::string, std::tuple<double, Ptr<SpectrumValue>>> nrTxMap)
 {
-  wifiTxBandwidth = std::get<0>(wifiParams) * 1e6;
-  wifiTxPower = std::get<1>(wifiParams);
-  rbBandwidth = std::get<0>(nrTxMap.begin()->second);
-  SpectrumValue spectrum = SpectrumValue((std::get<1>(nrTxMap.begin()->second))->GetSpectrumModel());
-  for (auto it = nrTxMap.begin(); it != nrTxMap.end(); ++it)
-    {
-      uint8_t i = 0;
-      Ptr<SpectrumValue> spetrTmp = std::get<1>(it->second);
-      for (auto it2 = spetrTmp->ValuesBegin(); it2 != spetrTmp->ValuesEnd(); ++it2)
-        {
-          if (*it2 != 0)
-            {
-              spectrum[i] += *it2;
-            }
-          i++;
-        }
-    }
-  nrTxSpectrum = Create<SpectrumValue>(spectrum);
-  interference = true;
+
 }
 
 void
@@ -81,7 +58,6 @@ NrNodeState(std::string context, Time duration)
 
   if (state != NrSpectrumPhy::TX)
     {
-      interference = false;
       return;
     }
 
@@ -119,10 +95,6 @@ NrNodeState(std::string context, Time duration)
     {
       SetWifiNrMetrics(wifiParams, txMapNr);
     }
-  else
-    {
-      interference = false;
-    }
 }
 
 void
@@ -149,7 +121,6 @@ WifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
 
   if (state != WifiPhyState::TX)
     {
-      interference = false;
       return;
     }
 
@@ -169,16 +140,10 @@ WifiNodeState (std::string context, Time start, Time duration, WifiPhyState stat
             }
         }
     }
-
-
   std::tuple<double, double> wifiParams = std::make_tuple (m_txMap11p[vehID].bandwidth, m_txMap11p[vehID].txPower_W);
   if (nrDevices > 0)
     {
-      SetWifiNrMetrics(wifiParams, txMapNr);
-    }
-  else
-    {
-      interference = false;
+      SetWifiNrMetrics (wifiParams, txMapNr);
     }
 }
 

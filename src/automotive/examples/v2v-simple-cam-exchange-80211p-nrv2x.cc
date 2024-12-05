@@ -100,16 +100,16 @@ BSMap basicServices; // Container for all ETSI Basic Services, installed on all 
 
 void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, StationType_t my_StationType, SignalInfo phy_info)
 {
-  std::ofstream camFile;
+  packet_count++;
+  /*std::ofstream camFile;
   camFile.open("cam_info.txt", std::ios::out | std::ios::app);
   if (!camFile.is_open())
     {
       std::cerr << "Unable to open file to save CAM information";
     }
   camFile << "Station " << my_stationID << " received from " << cam->header.stationId << std::endl;
-  packet_count++;
 
-  /*libsumo::TraCIPosition pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::vehicle.getPosition("veh" + std::to_string(my_stationID));
+  libsumo::TraCIPosition pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::vehicle.getPosition("veh" + std::to_string(my_stationID));
   pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::simulation.convertXYtoLonLat(pos.x,pos.y);
 
   // Get the position of the sender
@@ -132,7 +132,7 @@ void txTrackerSetup(std::vector<std::string> wifiVehicles, NodeContainer wifiNod
   for (auto v : wifiVehicles)
     {
       uint8_t id = wifiNodes.Get(i)->GetId();
-      Ptr<WifiNetDevice> netDevice = DynamicCast<WifiNetDevice>(wifiNodes.Get(id)->GetDevice(0));
+      Ptr<WifiNetDevice> netDevice = DynamicCast<WifiNetDevice>(wifiNodes.Get(i)->GetDevice(0));
       wifiVehiclesList.push_back (std::make_tuple (v, id, netDevice));
       i++;
     }
@@ -173,13 +173,11 @@ int main (int argc, char *argv[])
   bool verbose = false; // Set to true to get a lot of verbose output from the PHY model (leave this to false)
   int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
   double m_baseline_prr = 150.0; // PRR baseline value (default: 150 m)
-  int txPower = 24.0; // Transmission power in dBm (default: 23 dBm)
-  int txPower_11p = txPower;
-  int txPower_nr = txPower;
+  int txPower = 23.0; // Transmission power in dBm (default: 23 dBm)
   double sensitivity = -93.0;
   double snr_threshold = 4; // Default value
   xmlDocPtr rou_xml_file;
-  double simTime = 200.0; // Total simulation time (default: 200 seconds)
+  double simTime = 100.0; // Total simulation time (default: 200 seconds)
 
   // NR parameters. We will take the input from the command line, and then we
   // will pass them inside the NR module.
@@ -549,6 +547,7 @@ int main (int argc, char *argv[])
                                       "Threshold", DoubleValue (snr_threshold));
   YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default ();
   Ptr<YansWifiChannel> channel = wifiChannel.Create ();
+  wifiPhy.SetChannel (channel);
 
   /*SpectrumWifiPhyHelper spectrumWiFiPhy = SpectrumWifiPhyHelper();
   spectrumWiFiPhy.Set ("TxPowerStart", DoubleValue (txPower));
@@ -602,15 +601,15 @@ int main (int argc, char *argv[])
   uint8_t nodeCounter = 0;
   std::vector<std::string> wifiVehicles;
   std::vector<std::string> nrVehicles;
-  for (uint8_t i = 0; i < numberOfNodes_11p + numberOfNodes_nr; i++)
+  for (uint8_t i = 1; i <= numberOfNodes_11p + numberOfNodes_nr; i++)
     {
       if (i % 2 == 0)
         {
-          wifiVehicles.push_back ("veh" + std::to_string (i+1));
+          wifiVehicles.push_back ("veh" + std::to_string (i));
         }
       else
         {
-          nrVehicles.push_back("veh" + std::to_string (i + 1));
+          nrVehicles.push_back("veh" + std::to_string (i));
         }
     }
 
@@ -722,22 +721,28 @@ int main (int argc, char *argv[])
   // When the simulation is terminated, gather the most relevant metrics from the PRRsupervisor
   std::cout << "Run terminated..." << std::endl;
 
-  std::cout << "\nTotal number of CAMs received: " << packet_count << std::endl;
+  std::ofstream outputFile("src/output.txt");
+  if (!outputFile.is_open())
+    {
+      std::cerr << "Unable to open file";
+    }
 
-  std::cout << "\nMetric Supervisor statistics for 802.11p" << std::endl;
-  std::cout << "Average PRR: " << metSup_11p->getAveragePRR_overall () << std::endl;
-  std::cout << "Average latency (ms): " << metSup_11p->getAverageLatency_overall () << std::endl;
-  std::cout << "Average SINR (dB): " << metSup_11p->getAverageSINR_overall() << std::endl;
-  std::cout << "RX packet count (from PRR Supervisor): " << metSup_11p->getNumberRx_overall () << std::endl;
-  std::cout << "TX packet count (from PRR Supervisor): " << metSup_11p->getNumberTx_overall () << std::endl;
+  outputFile << "\nTotal number of CAMs received: " << packet_count << std::endl;
+
+  outputFile << "\nMetric Supervisor statistics for 802.11p" << std::endl;
+  outputFile << "Average PRR: " << metSup_11p->getAveragePRR_overall () << std::endl;
+  outputFile << "Average latency (ms): " << metSup_11p->getAverageLatency_overall () << std::endl;
+  outputFile << "Average SINR (dB): " << metSup_11p->getAverageSINR_overall() << std::endl;
+  outputFile << "RX packet count (from PRR Supervisor): " << metSup_11p->getNumberRx_overall () << std::endl;
+  outputFile << "TX packet count (from PRR Supervisor): " << metSup_11p->getNumberTx_overall () << std::endl;
   // std::cout << "Average number of vehicle within the " << m_baseline_prr << " m baseline: " << metSup_11p->getAverageNumberOfVehiclesInBaseline_overall () << std::endl;
 
-  std::cout << "\nMetric Supervisor statistics for NR-V2X" << std::endl;
-  std::cout << "Average PRR: " << metSup_nr->getAveragePRR_overall () << std::endl;
-  std::cout << "Average latency (ms): " << metSup_nr->getAverageLatency_overall () << std::endl;
-  std::cout << "Average SINR (dB): " << metSup_nr->getAverageSINR_overall() << std::endl;
-  std::cout << "RX packet count (from PRR Supervisor): " << metSup_nr->getNumberRx_overall () << std::endl;
-  std::cout << "TX packet count (from PRR Supervisor): " << metSup_nr->getNumberTx_overall () << std::endl;
+  outputFile << "\nMetric Supervisor statistics for NR-V2X" << std::endl;
+  outputFile << "Average PRR: " << metSup_nr->getAveragePRR_overall () << std::endl;
+  outputFile << "Average latency (ms): " << metSup_nr->getAverageLatency_overall () << std::endl;
+  outputFile << "Average SINR (dB): " << metSup_nr->getAverageSINR_overall() << std::endl;
+  outputFile << "RX packet count (from PRR Supervisor): " << metSup_nr->getNumberRx_overall () << std::endl;
+  outputFile << "TX packet count (from PRR Supervisor): " << metSup_nr->getNumberTx_overall () << std::endl;
   // std::cout << "Average number of vehicle within the " << m_baseline_prr << " m baseline: " << metSup_nr->getAverageNumberOfVehiclesInBaseline_overall () << std::endl;
 
   Simulator::Destroy ();

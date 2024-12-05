@@ -54,16 +54,8 @@ typedef struct txParametersNR {
 
 extern std::unordered_map<std::string, txParameters11p> m_txMap11p;
 extern std::unordered_map<std::string, txParametersNR> m_txMapNr;
-extern bool isInterference;
 
-extern double wifiTxPower;
-extern double wifiTxBandwidth;
-
-extern double rbBandwidth;
-extern Ptr<SpectrumValue> nrTxSpectrum;
-extern bool interference;
-
-void Insert11pNodes(std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes);
+void Insert11pNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes);
 void InsertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
 
 void StartTxTracking();
