@@ -6,6 +6,9 @@ from sionna.rt import load_scene, PlanarArray, Transmitter, Receiver, Paths
 from sionna.constants import SPEED_OF_LIGHT
 import os
 
+file_name = "scenarios/SionnaCircleScenario/scene.xml"
+local_machine = False
+
 # Configure which GPU to use
 if os.getenv("CUDA_VISIBLE_DEVICES") is None:
     gpu_num = 2  # Use "" to use only CPU
@@ -25,38 +28,41 @@ if gpus:
 tf.get_logger().setLevel('ERROR')
 
 # Scene, change here the path to your scenario
-scene = load_scene("Sionna Codeblocks/CIRCLE/scene.xml")
+scene = load_scene(file_name)
 
 # Radio settings
-scene.frequency = 5.89e9 # in Hz
-scene.synthetic_array = True # If set to False, ray tracing will be done per antenna element (slower for large arrays)
+scene.frequency = 5.89e9  # in Hz
+scene.synthetic_array = True  # If set to False, ray tracing will be done per antenna element (slower for large arrays)
 # Antenna settings
 antenna_displacement = [0, 0, 1.5]  # location of the antenna wrt the car mesh
 element_spacing = SPEED_OF_LIGHT / scene.frequency / 2
-#array = PlanarArray(1, 2, element_spacing, element_spacing, "tr38901", "V")
-array = PlanarArray(1, 1, element_spacing, element_spacing, "iso", "V") # 1x1 isotropic antenna
+# array = PlanarArray(1, 2, element_spacing, element_spacing, "tr38901", "V")
+array = PlanarArray(1, 1, element_spacing, element_spacing, "iso", "V")  # 1x1 isotropic antenna
 # SUMO update granularity
 position_threshold = 3  # Update object position every position_threshold [meters]
 angle_threshold = 90  # Update object angle every angle_threshold [degrees]
 # Rays computation settings
-max_depth=5
-num_samples=1e4
+max_depth = 5
+num_samples = 1e4
 
 # Create a UDP socket
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # ... and bind it to the correct (address, port)
-#udp_socket.bind(("127.0.0.1", 8103)) # use this if ns3 in localhost, chose whatever port you prefer
-udp_socket.bind(("0.0.0.0", 8103)) # if you use an external server with Sionna and ns3 in another machine
+if local_machine:
+    udp_socket.bind(("127.0.0.1", 8103))  # use this if ns3 in localhost, chose whatever port you prefer
+else:
+    udp_socket.bind(("0.0.0.0", 8103))  # if you use an external server with Sionna and ns3 in another machine
 
 # Chaches and other variables
-SUMO_live_location_db = {} # Stores the live location of each vehicle in SUMO
-Sionna_location_db = {} # Stores the location of each vehicle in Sionna, not updated in real-time as too computationally expensive
+SUMO_live_location_db = {}  # Stores the live location of each vehicle in SUMO
+Sionna_location_db = {}  # Stores the location of each vehicle in Sionna, not updated in real-time as too computationally expensive
 
 rays_cache = {}
 
 pathloss_cache = {}
 delay_cache = {}
 last_pathloss_requested = None
+
 
 def ManageLocationMessage(message):
 
@@ -112,8 +118,8 @@ def ManageLocationMessage(message):
                 from_sionna = scene.get(f"car_{car}")
                 from_sionna.position = [new_x, new_y, new_z]
                 # Orientation is not changed because of a SIONNA bug (kernel crashes)
-                #new_orientation = (new_angle*np.pi/180, 0, 0)
-                #from_sionna.orientation = type(from_sionna.orientation)(new_orientation, device=from_sionna.orientation.device)
+                # new_orientation = (new_angle*np.pi/180, 0, 0)
+                # from_sionna.orientation = type(from_sionna.orientation)(new_orientation, device=from_sionna.orientation.device)
 
                 print(f"Updated car_{car} position in the scene.")
             else:
@@ -127,12 +133,13 @@ def ManageLocationMessage(message):
         print(f"EXCEPTION - Location parsing failed: {e}")
         return None
 
+
 def matchRaysToCars(paths, Sionna_location_db, tolerance=position_threshold, antenna_displacement=antenna_displacement):
     matched_paths = {}
     targets = paths.targets.numpy()
     sources = paths.sources.numpy()
 
-    #paths_mask_np = paths.mask.numpy()
+    # paths_mask_np = paths.mask.numpy()
     path_coefficients_np = paths.a.numpy()
     delays_np = paths.tau.numpy()
     types_np = paths.types.numpy()
@@ -182,12 +189,12 @@ def matchRaysToCars(paths, Sionna_location_db, tolerance=position_threshold, ant
 
                     if matched_target_car_name not in matched_paths[matched_source_car_name]:
                         matched_paths[matched_source_car_name][matched_target_car_name] = {
-                            #'paths_mask': [],
+                            # 'paths_mask': [],
                             'path_coefficients': [],
                             'delays': [],
-                            #'angles_of_departure': {'zenith': [], 'azimuth': []},
-                            #'angles_of_arrival': {'zenith': [], 'azimuth': []},
-                            #'doppler': [],
+                            # 'angles_of_departure': {'zenith': [], 'azimuth': []},
+                            # 'angles_of_arrival': {'zenith': [], 'azimuth': []},
+                            # 'doppler': [],
                             'is_los': []
                         }
 
@@ -223,6 +230,7 @@ def matchRaysToCars(paths, Sionna_location_db, tolerance=position_threshold, ant
 
     return matched_paths
 
+
 def computeRays():
     t = time.time()
 
@@ -253,10 +261,10 @@ def computeRays():
     # Compute paths
     paths = scene.compute_paths(max_depth=max_depth, num_samples=num_samples, diffraction=True, scattering=True)
     paths.normalize_delays = False  # Do not normalize delays to the first path
-    print(f"Ray tracing took: {(time.time() - t)*1000} ms")
+    print(f"Ray tracing took: {(time.time() - t) * 1000} ms")
     t = time.time()
     matched_paths = matchRaysToCars(paths, Sionna_location_db)  # matched_paths[source_name][target_name]
-    print(f"Matching rays to cars took: {(time.time() - t)*1000} ms")
+    print(f"Matching rays to cars took: {(time.time() - t) * 1000} ms")
 
     # Iterate over sources in matched_paths
     for src_car_id in Sionna_location_db:
@@ -280,7 +288,7 @@ def computeRays():
                             car_name = f"car_{car_id}"
                             if scene.get(car_name):
                                 from_sionna = scene.get(car_name)
-                                new_position = [ SUMO_live_location_db[car_id]["x"], SUMO_live_location_db[car_id]["y"], SUMO_live_location_db[car_id]["z"] ]
+                                new_position = [SUMO_live_location_db[car_id]["x"], SUMO_live_location_db[car_id]["y"], SUMO_live_location_db[car_id]["z"] ]
                                 from_sionna.position = new_position
                                 # Update Sionna location database with new positions
                                 Sionna_location_db[car_id] = { "x": new_position[0], "y": new_position[1], "z": new_position[2], "angle": SUMO_live_location_db[car_id]["angle"] }
@@ -305,6 +313,7 @@ def computeRays():
 
     return None
 
+
 def GetPathloss(car1_id, car2_id):
 
     global rays_cache
@@ -327,9 +336,10 @@ def GetPathloss(car1_id, car2_id):
 
     return path_loss
 
+
 def ManagePathlossRequest(message):
     try:
-        data = message[len("calc_request:") :]
+        data = message[len("calc_request:"):]
         parts = data.split(",")
         car_a_str = parts[0].replace("veh", "")
         car_b_str = parts[1].replace("veh", "")
@@ -351,6 +361,7 @@ def ManagePathlossRequest(message):
         print(f"EXCEPTION - Error processing pathloss request: {e}")
         return None
 
+
 def GetDelay(car1_id, car2_id):
     global rays_cache
 
@@ -371,9 +382,10 @@ def GetDelay(car1_id, car2_id):
 
     return min_positive_value
 
+
 def ManageDelayRequest(message):
     try:
-        data = message[len("get_delay:") :]
+        data = message[len("get_delay:"):]
         parts = data.split(",")
         car_a_str = parts[0].replace("veh", "")
         car_b_str = parts[1].replace("veh", "")
@@ -393,6 +405,7 @@ def ManageDelayRequest(message):
     except (ValueError, IndexError) as e:
         print(f"EXCEPTION - Error processing delay request: {e}")
         return None
+
 
 def ManageLOSRequest(message):
     try:
@@ -417,40 +430,43 @@ def ManageLOSRequest(message):
         print(f"EXCEPTION - Error processing LOS request: {e}")
         return None
 
-# Startpoint
-print("Sionna is now ready to handle messages... waiting")
 
-while True:
-    # Receive data from the socket
-    payload, address = udp_socket.recvfrom(1024)
-    message = payload.decode()
+if __name__ == "__main__":
 
-    if message.startswith("map_update:"):
-        updated_car = ManageLocationMessage(message)
-        if updated_car is not None:
-            response = "UPDATEDveh" + str(updated_car)
-            udp_socket.sendto(response.encode(), address)
+    # Startpoint
+    print("Sionna is now ready to handle messages... waiting")
 
-    if message.startswith("calc_request:"):
-        pathloss = ManagePathlossRequest(message)
-        if pathloss is not None:
-            # Use pathloss + 23 for 80211p calibration
-            response = "CALC_DONE:" + str(pathloss)
-            udp_socket.sendto(response.encode(), address)
+    while True:
+        # Receive data from the socket
+        payload, address = udp_socket.recvfrom(1024)
+        message = payload.decode()
 
-    if message.startswith("get_delay:"):
-        delay = ManageDelayRequest(message)
-        if delay is not None:
-            response = "DELAY:" + str(delay)
-            udp_socket.sendto(response.encode(), address)
+        if message.startswith("map_update:"):
+            updated_car = ManageLocationMessage(message)
+            if updated_car is not None:
+                response = "UPDATEDveh" + str(updated_car)
+                udp_socket.sendto(response.encode(), address)
 
-    if message.startswith("are_they_LOS:"):
-        los = ManageLOSRequest(message)
-        if los is not None:
-            response = "LOS:" + str(los)
-            udp_socket.sendto(response.encode(), address)
+        if message.startswith("calc_request:"):
+            pathloss = ManagePathlossRequest(message)
+            if pathloss is not None:
+                # Use pathloss + 23 for 80211p calibration
+                response = "CALC_DONE:" + str(pathloss)
+                udp_socket.sendto(response.encode(), address)
 
-    if message.startswith("kill_sionna"):
-        print("Killing Sionna")
-        udp_socket.close()
-        break
+        if message.startswith("get_delay:"):
+            delay = ManageDelayRequest(message)
+            if delay is not None:
+                response = "DELAY:" + str(delay)
+                udp_socket.sendto(response.encode(), address)
+
+        if message.startswith("are_they_LOS:"):
+            los = ManageLOSRequest(message)
+            if los is not None:
+                response = "LOS:" + str(los)
+                udp_socket.sendto(response.encode(), address)
+
+        if message.startswith("kill_sionna"):
+            print("Killing Sionna")
+            udp_socket.close()
+            break

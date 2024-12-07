@@ -390,7 +390,7 @@ MultiModelSpectrumChannel::StartTx (Ptr<SpectrumSignalParameters> txParams)
 
                       for(uint8_t i = 0; i < counterRB; i++)
                         {
-                          (*wifiSignal)[i] = finalInterferencePowerW / counterRB;
+                          (*wifiSignal)[i] = finalInterferencePowerW / rbBandwidth;
                         }
 
                       interferenceNodes.insert({ it->first, std::make_pair (wifiSignal, interferenceDelay)});
@@ -414,7 +414,6 @@ MultiModelSpectrumChannel::StartTx (Ptr<SpectrumSignalParameters> txParams)
         }
 
     }
-
 }
 
 void

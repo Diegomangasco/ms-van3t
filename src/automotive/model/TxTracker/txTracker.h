@@ -58,8 +58,6 @@ extern std::unordered_map<std::string, txParametersNR> m_txMapNr;
 void Insert11pNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<WifiNetDevice>>> nodes);
 void InsertNrNodes (std::vector<std::tuple<std::string, uint8_t, Ptr<NrUeNetDevice>>> nodes);
 
-void StartTxTracking();
-
 }
 
 #endif //NS3_TXTRACKER_H

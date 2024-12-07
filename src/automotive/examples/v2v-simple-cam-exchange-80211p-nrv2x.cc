@@ -173,11 +173,12 @@ int main (int argc, char *argv[])
   bool verbose = false; // Set to true to get a lot of verbose output from the PHY model (leave this to false)
   int numberOfNodes; // Total number of vehicles, automatically filled in by reading the XML file
   double m_baseline_prr = 150.0; // PRR baseline value (default: 150 m)
-  int txPower = 23.0; // Transmission power in dBm (default: 23 dBm)
+  int txPower = 30.0; // Transmission power in dBm (default: 23 dBm)
   double sensitivity = -93.0;
-  double snr_threshold = 4; // Default value
+  double snr_threshold = 10; // Default value
+  double sinr_threshold = 10; // Default value
   xmlDocPtr rou_xml_file;
-  double simTime = 100.0; // Total simulation time (default: 200 seconds)
+  double simTime = 180.0; // Total simulation time (default: 200 seconds)
 
   // NR parameters. We will take the input from the command line, and then we
   // will pass them inside the NR module.
@@ -211,8 +212,8 @@ int main (int argc, char *argv[])
 
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
-  std::string mob_trace = "cars_60.rou.xml";
-  std::string sumo_config ="src/automotive/examples/sumo_files_v2v_map/map.sumo_60.cfg";
+  std::string mob_trace = "cars_120.rou.xml";
+  std::string sumo_config ="src/automotive/examples/sumo_files_v2v_map/map.sumo_120.cfg";
 
   // Read the command line options
   CommandLine cmd (__FILE__);
@@ -351,8 +352,8 @@ int main (int argc, char *argv[])
   nrHelper->SetUeAntennaAttribute ("AntennaElement", PointerValue (CreateObject<IsotropicAntennaModel> ()));
 
   nrHelper->SetUePhyAttribute ("TxPower", DoubleValue (txPower));
-  nrHelper->SetUePhyAttribute ("RiSinrThreshold1", DoubleValue (snr_threshold));
-  nrHelper->SetUePhyAttribute ("RiSinrThreshold2", DoubleValue (snr_threshold));
+  nrHelper->SetUePhyAttribute ("RiSinrThreshold1", DoubleValue (sinr_threshold));
+  nrHelper->SetUePhyAttribute ("RiSinrThreshold2", DoubleValue (sinr_threshold));
 
   // nrHelper->SetUeAntennaAttribute ();
 
@@ -614,7 +615,6 @@ int main (int argc, char *argv[])
     }
 
   txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
-  StartTxTracking();
 
   uint8_t node11pCounter = 0;
   uint8_t nodeNrCounter = 0;
