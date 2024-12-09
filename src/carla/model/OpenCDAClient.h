@@ -31,7 +31,7 @@
 
 #include "ns3/carla.grpc.pb.h"
 
-#define STARTUP_FCN std::function<Ptr<Node>(std::string)>
+#define STARTUP_FCN std::function<Ptr<Node>(std::string, TraciClient::StationTypeTraCI_t)>
 #define SHUTDOWN_FCN std::function<void(Ptr<Node>,std::string)>
 
 namespace ns3
