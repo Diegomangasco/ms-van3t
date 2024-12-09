@@ -281,7 +281,7 @@ int main (int argc, char *argv[])
   std::cout<<actualPhy->GetTxPowerEnd()<<std::endl;*/
 
   /* callback function for node creation */
-  STARTUP_FCN setupNewWifiNode = [&] (std::string stationID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
+  STARTUP_TRACI_FCN setupNewWifiNode = [&] (std::string stationID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
     {
       unsigned long nodeID = std::stol(stationID.substr (3));
       std::string station_type_ID = stationID.substr(0,3);
@@ -348,7 +348,7 @@ int main (int argc, char *argv[])
     };
 
   /* Callback function for node shutdown */
-  SHUTDOWN_FCN shutdownWifiNode = [] (Ptr<Node> exNode, std::string stationID)
+  SHUTDOWN_TRACI_FCN shutdownWifiNode = [] (Ptr<Node> exNode, std::string stationID)
     {
        /* Set position outside communication range */
       Ptr<ConstantPositionMobilityModel> mob = exNode->GetObject<ConstantPositionMobilityModel>();

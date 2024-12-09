@@ -288,7 +288,7 @@ int main (int argc, char *argv[])
   // Important: what you write inside setupNewWifiNode() will be executed every time a new vehicle enters the simulation in SUMO
   // This kind of "std::function" is called lambda function, and it can access all variables outside its scope, thanks to the [&] capture
   // We setup here the ETSI stack for each vehicle (except the one generating interfering traffic), thanks to the BSContainer object
-  STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
+  STARTUP_TRACI_FCN setupNewWifiNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
     {
       unsigned long nodeID = std::stol(vehicleID.substr (3))-1;
       uint32_t id = source_interfering[nodeID]->GetNode()->GetId();
@@ -345,7 +345,7 @@ int main (int argc, char *argv[])
 
   // Important: what you write here is called every time a node exits the simulation in SUMO
   // You can safely keep this function as it is, and ignore it
-  SHUTDOWN_FCN shutdownWifiNode = [] (Ptr<Node> exNode, std::string vehicleID)
+  SHUTDOWN_TRACI_FCN shutdownWifiNode = [] (Ptr<Node> exNode, std::string vehicleID)
     {
       /* Set position outside communication range */
       Ptr<ConstantPositionMobilityModel> mob = exNode->GetObject<ConstantPositionMobilityModel>();

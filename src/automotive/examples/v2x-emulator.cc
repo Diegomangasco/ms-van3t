@@ -242,7 +242,7 @@ main (int argc, char *argv[])
   Ipv4StaticRoutingHelper ipv4RoutingHelper;
 
   /* Callback function for node creation */
-  STARTUP_FCN setupNewEmuNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
+  STARTUP_TRACI_FCN setupNewEmuNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
     {
       if (nodeCounter >= obuNodes.GetN())
         NS_FATAL_ERROR("Node Pool empty!: " << nodeCounter << " nodes created.");
@@ -289,7 +289,7 @@ main (int argc, char *argv[])
     };
 
   /* Callback function for node shutdown */
-  SHUTDOWN_FCN shutdownEmuNode = [] (Ptr<Node> exNode,std::string vehicleID)
+  SHUTDOWN_TRACI_FCN shutdownEmuNode = [] (Ptr<Node> exNode,std::string vehicleID)
     {
       /* stop all applications */
       Ptr<v2xEmulator> v2xEmulatorApp_ = exNode->GetApplication(0)->GetObject<v2xEmulator>();

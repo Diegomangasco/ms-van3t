@@ -243,7 +243,7 @@ namespace ns3
   }
 
   void
-  TraciClient::SumoSetup(STARTUP_FCN includeNode, SHUTDOWN_FCN excludeNode)
+  TraciClient::SumoSetup(STARTUP_TRACI_FCN includeNode, SHUTDOWN_TRACI_FCN excludeNode)
   {
     NS_LOG_FUNCTION(this);
 

@@ -299,7 +299,7 @@ main (int argc, char *argv[])
   AreaSpeedAdvisorClient80211pHelper.SetAttribute ("MetricSupervisor", PointerValue (metSup));
 
   /* callback function for node creation */
-  STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
+  STARTUP_TRACI_FCN setupNewWifiNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
     {
       if (nodeCounter >= obuNodes.GetN())
         NS_FATAL_ERROR("Node Pool empty!: " << nodeCounter << " nodes created.");
@@ -318,7 +318,7 @@ main (int argc, char *argv[])
     };
 
   /* callback function for node shutdown */
-  SHUTDOWN_FCN shutdownWifiNode = [] (Ptr<Node> exNode,std::string vehicleID)
+  SHUTDOWN_TRACI_FCN shutdownWifiNode = [] (Ptr<Node> exNode,std::string vehicleID)
     {
       /* Stop all applications */
       Ptr<areaSpeedAdvisorClient80211p> areaSpeedAdvisorClient80211p_ = exNode->GetApplication(0)->GetObject<areaSpeedAdvisorClient80211p>();

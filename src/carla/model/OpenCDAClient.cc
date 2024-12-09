@@ -17,7 +17,6 @@
 #include <string>
 #include "OpenCDAClient.h"
 #include <unistd.h> // For usleep
-#include "ns3/traci-module.h" // Include the header file for TraciClient
 #include <fcntl.h>
 #include <libssh/libssh.h>
 #include <cstdlib>
@@ -197,7 +196,7 @@ namespace ns3
       }
   }
   
-  OpenCDAClient::startCarlaAdapter(std::function<Ptr<Node>(std::string, TraciClient::StationTypeTraCI_t)> includeNode, std::function<void (Ptr<Node>,std::string)> excludeNode)
+  void OpenCDAClient::startCarlaAdapter(std::function<Ptr<Node>(std::string)> includeNode, std::function<void (Ptr<Node>,std::string)> excludeNode)
   {
       m_includeNode = includeNode;
       m_excludeNode = excludeNode;

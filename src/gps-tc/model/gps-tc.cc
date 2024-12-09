@@ -239,7 +239,7 @@ namespace ns3
   }
 
   void
-  GPSTraceClient::GPSTraceClientSetup(STARTUP_FCN create_fcn,SHUTDOWN_FCN destroy_fcn)
+  GPSTraceClient::GPSTraceClientSetup(STARTUP_TRACI_FCN create_fcn,SHUTDOWN_TRACI_FCN destroy_fcn)
   {
       m_includeNode=create_fcn;
       m_excludeNode=destroy_fcn;

@@ -211,7 +211,7 @@ main (int argc, char *argv[])
   }
 
   /* callback function for node creation */
-  STARTUP_FCN setupNewWifiNode = [&] (std::string vehicleID,TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
+  STARTUP_TRACI_FCN setupNewWifiNode = [&] (std::string vehicleID, TraciClient::StationTypeTraCI_t stationType) -> Ptr<Node>
     {
 
       if (nodeCounter >= obuNodes.GetN())
@@ -234,7 +234,7 @@ main (int argc, char *argv[])
   int remainingNodes = obuNodes.GetN();
 
   /* callback function for node shutdown */
-  SHUTDOWN_FCN shutdownWifiNode = [&] (Ptr<Node> exNode,std::string vehicleID)
+  SHUTDOWN_TRACI_FCN shutdownWifiNode = [&] (Ptr<Node> exNode,std::string vehicleID)
     {
       /* stop all applications */
       Ptr<simpleCAMSender> AppSimpleSender_ = exNode->GetApplication(0)->GetObject<simpleCAMSender>();
