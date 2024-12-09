@@ -341,6 +341,11 @@ public:
    * \return HARQ module of this spectrum phy
    */
   Ptr<NrHarqPhy> GetHarqPhyModule (void) const;
+
+  Ptr<SpectrumValue> GetTxPowerSpectralDensity ();
+
+  State GetState ();
+
   /**
    * \return NrInterference instance of this spectrum phy
    */

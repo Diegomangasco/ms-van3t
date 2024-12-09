@@ -25,6 +25,8 @@
 #include "ns3/gn-utils.h"
 #include <cmath>
 #include "ns3/ipv4-header.h"
+#include "ns3/snr-tag.h"
+#include "ns3/sinr-tag.h"
 #define SN_MAX 65536
 
 namespace ns3 {
@@ -723,7 +725,12 @@ namespace ns3 {
         if(dataIndication.GNType!=BEACON || m_PRRsupervisor_beacons==true)
         {
           m_metric_supervisor_ptr->updateBytesReceived(dataSize);
-            m_metric_supervisor_ptr->signalReceivedPacket(MetricSupervisor::bufToString (buffer,dataSize),m_station_id);
+          SnrTag snr;
+          bool snr_result = dataIndication.data->PeekPacketTag (snr);
+          SinrTag sinr;
+          bool sinr_result = dataIndication.data->PeekPacketTag (sinr);
+          double return_sinr = snr_result ? snr.Get() : sinr.Get();
+          m_metric_supervisor_ptr->signalReceivedPacket(MetricSupervisor::bufToString (buffer,dataSize),m_station_id, return_sinr);
         }
 
         delete[] buffer;

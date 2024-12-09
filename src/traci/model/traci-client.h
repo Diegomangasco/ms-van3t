@@ -83,6 +83,8 @@ public:
 
   std::string GetStationId(Ptr<Node> node);
 
+  void SetSionnaUp() {m_sionna = true;};
+
 
 private:
   // perform sumo simulation for a certain time step
@@ -138,6 +140,8 @@ private:
   Ptr<vehicleVisualizer> m_vehicle_visualizer;
   std::string m_netns_name;
   void terminateVehicleVisualizer (void);
+
+  bool m_sionna = false;
 
 };
 

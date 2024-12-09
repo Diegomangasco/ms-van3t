@@ -32,6 +32,8 @@
 
 #include "traci-client.h"
 
+#include "ns3/sionna_handler.h"
+
 namespace ns3
 {
   NS_LOG_COMPONENT_DEFINE("TraciClient");
@@ -375,6 +377,14 @@ namespace ns3
             // set ns3 node position with user defined altitude
             mob->SetPosition(Vector(pos.x, pos.y, m_altitude));
 
+            // send map_update message to NVIDIA Sionna and wait for the change to be applied
+            double angle = this->TraCIAPI::vehicle.getAngle(node_ID);
+
+            if (m_sionna == true)
+            {
+              updateLocationSionna(node_ID, std::to_string(pos.x), std::to_string(pos.y), std::to_string(pos.z), std::to_string(angle));
+            }
+
             if (m_vehicle_visualizer!=nullptr && m_vehicle_visualizer->isConnected() && it->second.first != StationType_pedestrian)
             {
                 libsumo::TraCIPosition lonlat = this->TraCIAPI::simulation.convertXYtoLonLat (pos.x,pos.y);
@@ -496,7 +506,7 @@ namespace ns3
                 // create new node by calling the include function
                 std::pair<StationType_t, Ptr<ns3::Node>> inNode;
                 inNode.first = StationType_passengerCar;
-                inNode.second = m_includeNode(veh,StationTypeTraci_vehicle);
+                inNode.second = m_includeNode(veh, StationTypeTraci_vehicle);
 
                 // register in the map (link vehicle to node!)
                 m_NodeMap.insert(std::pair<std::string, std::pair<StationType_t, Ptr<ns3::Node>>>(veh, inNode));
@@ -523,7 +533,7 @@ namespace ns3
                     // Create the new node by calling the include function
                     std::pair<StationType_t, Ptr<ns3::Node>> inNode_ped;
                     inNode_ped.first = StationType_pedestrian;
-                    inNode_ped.second = m_includeNode(ped,StationTypeTraci_pedestrian);
+                    inNode_ped.second = m_includeNode(ped, StationTypeTraci_pedestrian);
 
                     // Register the new node in the map
                     m_NodeMap.insert(std::pair<std::string, std::pair<StationType_t, Ptr<ns3::Node>>>(ped, inNode_ped));
