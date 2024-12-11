@@ -4,10 +4,23 @@ import numpy as np
 import socket
 from sionna.rt import load_scene, PlanarArray, Transmitter, Receiver, Paths
 from sionna.constants import SPEED_OF_LIGHT
-import os
+import os, subprocess, signal
 
 file_name = "scenarios/SionnaCircleScenario/scene.xml"
 local_machine = False
+
+def kill_process_using_port(port):
+    try:
+        result = subprocess.run(['lsof', '-i', f':{port}'], stdout=subprocess.PIPE)
+        for line in result.stdout.decode('utf-8').split('\n'):
+            if 'LISTEN' in line:
+                pid = int(line.split()[1])
+                os.kill(pid, signal.SIGKILL)
+                print(f"Killed process {pid} using port {port}")
+    except Exception as e:
+        print(f"Error killing process using port {port}: {e}")
+
+kill_process_using_port(8103)
 
 # Configure which GPU to use
 if os.getenv("CUDA_VISIBLE_DEVICES") is None:
