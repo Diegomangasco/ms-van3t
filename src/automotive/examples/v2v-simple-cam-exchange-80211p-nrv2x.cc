@@ -101,26 +101,46 @@ BSMap basicServices; // Container for all ETSI Basic Services, installed on all 
 void receiveCAM(asn1cpp::Seq<CAM> cam, Address from, StationID_t my_stationID, StationType_t my_StationType, SignalInfo phy_info)
 {
   packet_count++;
-  /*std::ofstream camFile;
-  camFile.open("cam_info.txt", std::ios::out | std::ios::app);
-  if (!camFile.is_open())
+  double snr = phy_info.snr;
+  double sinr = phy_info.sinr;
+  double rssi = phy_info.rssi;
+  double rsrp = phy_info.rsrp;
+  if (std::isnan(snr) && !std::isnan(sinr))
     {
-      std::cerr << "Unable to open file to save CAM information";
+      snr = sinr;
     }
-  camFile << "Station " << my_stationID << " received from " << cam->header.stationId << std::endl;
+  if (std::isnan(rssi) && !std::isnan(rsrp))
+    {
+      rssi = rsrp;
+    }
 
-  libsumo::TraCIPosition pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::vehicle.getPosition("veh" + std::to_string(my_stationID));
-  pos=basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::simulation.convertXYtoLonLat(pos.x,pos.y);
+  libsumo::TraCIPosition pos = basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::vehicle.getPosition("veh" + std::to_string(my_stationID));
+  pos = basicServices.get(my_stationID)->getTraCIclient ()->TraCIAPI::simulation.convertXYtoLonLat(pos.x,pos.y);
 
   // Get the position of the sender
-  double lat_sender=asn1cpp::getField(cam->cam.camParameters.basicContainer.referencePosition.latitude,double)/1e7;
-  double lon_sender=asn1cpp::getField(cam->cam.camParameters.basicContainer.referencePosition.longitude,double)/1e7;
+  double lat_sender = asn1cpp::getField(cam->cam.camParameters.basicContainer.referencePosition.latitude,double)/1e7;
+  double lon_sender = asn1cpp::getField(cam->cam.camParameters.basicContainer.referencePosition.longitude,double)/1e7;
 
   // Compute the distance between the sender and the receiver
-  double distance= haversineDist (lat_sender, lon_sender, pos.y, pos.x);
+  double distance = haversineDist (lat_sender, lon_sender, pos.y, pos.x);
 
-  // Save the signalInfo information to a CSV file
-  writeDataToCSV("signalInfo.csv","distance_m,rssi",distance,phy_info.rssi); */
+  std::ifstream camFileHeader("phy_info_sionna_coexistence.txt");
+  std::ofstream camFile;
+  camFile.open("phy_info_sionna_coexistence.txt", std::ios::out | std::ios::app);
+  if (!camFileHeader.is_open())
+    {
+      if (camFile.is_open())
+      {
+        camFile << "distance,rssi,snr" << std::endl;
+      } 
+      else 
+      {
+        std::cerr << "Unable to create file: phy_info_sionna_coexistence.txt" << std::endl;
+      }
+    }
+  
+  camFile << distance << "," << rssi << "," << snr << std::endl;
+  camFile.close();
 }
 
 void txTrackerSetup(std::vector<std::string> wifiVehicles, NodeContainer wifiNodes, std::vector<std::string> nrVehicles, NetDeviceContainer nrDevices)
@@ -147,20 +167,6 @@ void txTrackerSetup(std::vector<std::string> wifiVehicles, NodeContainer wifiNod
       i++;
     }
   InsertNrNodes (nrVehiclesList);
-}
-
-void takeTxNodes()
-{
-  /*std::vector<std::tuple<std::basic_string<char>, txTracker::TxType, double, double, double>> array = txTracker->getTxArray();
-  std::ofstream outFile("src/log.txt", std::ios::app);
-  for (auto it = array.begin(); it != array.end(); it++)
-    {
-      outFile << "Vehicle " << std::get<0>(*it) << " is transmitting from " << std::get<2>(*it) << " to " << std::get<3>(*it) << " MHz with a power of " << std::get<4>(*it) << " dBm" << std::endl;
-    }
-  outFile << "\n-----------------------------------\n" << std::endl;
-  outFile.close();
-
-  Simulator::Schedule (Seconds(2), &takeTxNodes, txTracker);*/
 }
 
 int main (int argc, char *argv[])
@@ -209,6 +215,9 @@ int main (int argc, char *argv[])
   // (81-2+1) x (1/2^2) < 20
 
   bool sionna = false;
+  std::string server_ip = "";
+
+  bool interference = false;
 
   // Set here the path to the SUMO XML files
   std::string sumo_folder = "src/automotive/examples/sumo_files_v2v_map/";
@@ -224,7 +233,11 @@ int main (int argc, char *argv[])
   cmd.AddValue ("tx-power", "OBUs transmission power [dBm]", txPower);
   cmd.AddValue ("sim-time", "Total duration of the simulation [s]", simTime);
   cmd.AddValue ("sionna", "Enable SIONNA usage", sionna);
+  cmd.AddValue ("interference", "Enable interference", interference);
+  cmd.AddValue ("sionna-server-ip", "SIONNA server IP address", server_ip);
   cmd.Parse (argc, argv);
+
+  std::cout << "Start running v2v-simple-cam-exchange-80211p-nrv2x simulation" << std::endl;
 
   std::ofstream outFile("src/sionna/setup.txt");
   if (!outFile.is_open())
@@ -234,6 +247,12 @@ int main (int argc, char *argv[])
 
   if (sionna)
     {
+      if (server_ip.empty())
+        {
+          std::cerr << "SIONNA server IP address is empty. Please provide a valid IP address." << std::endl;
+          return 1;
+        }
+      std::cout << "SIONNA mode enabled" << std::endl;
       outFile << "1";
       outFile.close();
     }
@@ -271,7 +290,7 @@ int main (int argc, char *argv[])
 
   if (sionna)
     {
-      sumoClient->SetSionnaUp();
+      sumoClient->SetSionnaUp(server_ip);
     }
 
   uint64_t numberOfNodes_11p = numberOfNodes / 2;
@@ -614,12 +633,14 @@ int main (int argc, char *argv[])
         }
     }
 
-  txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
+  if (interference)
+  {
+    std::cout << "Interference mode enabled" << std::endl;
+    txTrackerSetup(wifiVehicles, wifiNodes, nrVehicles, allSlUesNetDeviceContainer);
+  }
 
   uint8_t node11pCounter = 0;
   uint8_t nodeNrCounter = 0;
-
-  Simulator::Schedule (Seconds(2), &takeTxNodes);
 
   std::cout << "A transmission power of " << txPower << " dBm  will be used." << std::endl;
 

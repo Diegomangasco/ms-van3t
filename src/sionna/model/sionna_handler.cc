@@ -4,6 +4,7 @@ namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("");
 
+std::string sionna_server_ip = "";
 int sionna_port = 8103;
 int sionna_socket;
 struct sockaddr_in sionna_addr = {};
@@ -50,7 +51,7 @@ connect_now() {
     }
 
   // Set the destination IP and port for the Python machine
-  inet_aton("10.79.40.12", &sionna_destIPaddr);
+  inet_aton(sionna_server_ip.c_str(), &sionna_destIPaddr);
   sionna_addr.sin_family = AF_INET;
   sionna_addr.sin_port = htons(sionna_port);
   sionna_addr.sin_addr = sionna_destIPaddr;

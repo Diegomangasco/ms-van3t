@@ -21,12 +21,12 @@
 
 SignalInfoUtils::SignalInfoUtils()
 {
-    m_signalInfo.timestamp = DEFAULT_VALUE;
-    m_signalInfo.rssi = DEFAULT_VALUE;
-    m_signalInfo.snr = DEFAULT_VALUE;
-    m_signalInfo.sinr = DEFAULT_VALUE;
-    m_signalInfo.rsrp = DEFAULT_VALUE;
-    m_signalInfo.size = DEFAULT_VALUE;
+    m_signalInfo.timestamp = std::numeric_limits<double>::quiet_NaN();
+    m_signalInfo.rssi = std::numeric_limits<double>::quiet_NaN();
+    m_signalInfo.snr = std::numeric_limits<double>::quiet_NaN();
+    m_signalInfo.sinr = std::numeric_limits<double>::quiet_NaN();
+    m_signalInfo.rsrp = std::numeric_limits<double>::quiet_NaN();
+    m_signalInfo.size = std::numeric_limits<double>::quiet_NaN();
 }
 
 void SignalInfoUtils::SetSignalInfo(double timestamp, double size, double rssi, double snr, double sinr, double rsrp)

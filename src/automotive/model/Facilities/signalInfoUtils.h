@@ -23,7 +23,6 @@
 #include <cmath>
 #include <fstream>
 
-const double DEFAULT_VALUE = std::numeric_limits<double>::quiet_NaN();
 const double SENTINEL_VALUE = 42000;
 
 typedef struct {

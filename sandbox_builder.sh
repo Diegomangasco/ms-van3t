@@ -175,6 +175,7 @@ cp src/automotive/model/TxTracker/multi-model-spectrum-channel.cc src/spectrum/m
 cp src/automotive/model/TxTracker/multi-model-spectrum-channel.h src/spectrum/model/
 cp src/automotive/model/TxTracker/yans-wifi-channel.cc src/wifi/model/
 cp src/automotive/model/TxTracker/yans-wifi-channel.h src/wifi/model/
+cp src/automotive/model/TxTracker/yans-wifi-phy.h src/wifi/model/
 
 echo "Extending Signal Info features..."
 sleep 1

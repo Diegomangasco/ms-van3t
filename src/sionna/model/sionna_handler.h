@@ -35,6 +35,7 @@ double getPropagationDelayFromSionna (Vector a_position, Vector b_position);
 std::string getLOSStatusFromSionna (Vector a_position, Vector b_position);
 void LogProgress (int piece, std::string chunk);
 
+extern std::string sionna_server_ip;
 extern int sionna_port;
 extern int sionna_socket;
 extern struct sockaddr_in sionna_addr;

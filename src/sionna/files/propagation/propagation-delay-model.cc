@@ -117,7 +117,7 @@ ConstantSpeedPropagationDelayModel::ConstantSpeedPropagationDelayModel ()
       std::string content;
       std::getline(inFile, content);
       inFile.close();
-      if (content == "1")
+      if (content != "0")
         {
           SetSionnaUp();
         }

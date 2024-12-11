@@ -39,8 +39,9 @@
 #include "sumo-TraCIDefs.h"
 
 #include "ns3/vehicle-visualizer.h"
-
 #include "ns3/StationType.h"
+
+#include "ns3/sionna_handler.h"
 
 #define STARTUP_TRACI_FCN std::function<Ptr<Node>(std::string,TraciClient::StationTypeTraCI_t)>
 #define SHUTDOWN_TRACI_FCN std::function<void(Ptr<Node>,std::string)>
@@ -83,7 +84,7 @@ public:
 
   std::string GetStationId(Ptr<Node> node);
 
-  void SetSionnaUp() {m_sionna = true;};
+  void SetSionnaUp(std::string server_ip) {m_sionna = true; sionna_server_ip = server_ip;};
 
 
 private:
