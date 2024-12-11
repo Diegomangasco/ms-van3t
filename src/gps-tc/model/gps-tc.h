@@ -123,8 +123,8 @@ namespace ns3 {
           double m_travelled_distance;
 
           // Function pointers to node include/exclude functions
-          STARTUP_TRACI_FCN m_includeNode;
-          SHUTDOWN_TRACI_FCN m_excludeNode;
+          STARTUP_GPS_FCN m_includeNode;
+          SHUTDOWN_GPS_FCN m_excludeNode;
 
           EventId m_event_updatepos;
 
